@@ -1326,8 +1326,17 @@
         } else if (tutorialStep > 0) {
           setTutorialStep(tutorialStep + 1);
         } else {
-          initLevelData();
-          return;
+          // Normal mode progression
+          const currentIdx = DIFFICULTY_LEVELS.indexOf(difficulty);
+          if (currentIdx !== -1 && currentIdx < DIFFICULTY_LEVELS.length - 1) {
+            const nextDiff = DIFFICULTY_LEVELS[currentIdx + 1];
+            setDifficulty(nextDiff);
+            AudioEngine.start(nextDiff, activeTheme);
+          } else {
+            // Already at narwhal, restart the level
+            initLevelData();
+            return;
+          }
         }
         initLevelData();
       };
@@ -1710,7 +1719,7 @@
                                   )}
 
                                   <button onClick={handleStepAdvance} className={`px-8 py-3 text-white font-bold rounded-xl shadow-lg transition-all active:scale-95 ${activeTheme === 'dj' ? 'bg-gradient-to-r from-cyan-600 to-blue-600' : 'bg-gradient-to-r from-purple-600 to-pink-500'}`}>
-                                      {tutorialStep > 0 ? "Next Lesson" : "Play Next Show"}
+                                      {tutorialStep > 0 ? "Next Lesson" : (difficulty === 'narwhal' ? "Replay Tour" : "Next Level Challenge")}
                                   </button>
                                   
                                   <button onClick={handleResetToLobby} className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl transition-all active:scale-95">
