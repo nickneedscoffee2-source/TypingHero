@@ -1,0 +1,1661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Typing Arena: Rock Tour Edition</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- React, ReactDOM, and Babel CDNs for direct browser execution -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    /* Prevent general page scrolling to keep layout fully responsive and viewport-bound */
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      background-color: #020617; /* Dark concert stage background */
+    }
+    /* Sleek custom scrollbars */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #1e293b; }
+    ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+    
+    /* Glowing animations for active multipliers and menus */
+    @keyframes neon-glow {
+      0%, 100% { box-shadow: 0 0 10px rgba(168, 85, 247, 0.4); border-color: rgba(168, 85, 247, 0.5); }
+      50% { box-shadow: 0 0 25px rgba(236, 72, 153, 1); border-color: rgba(236, 72, 153, 1); }
+    }
+    .animate-glow-pulse { animation: neon-glow 1.8s ease-in-out infinite; }
+
+    /* Intense Earthquake Shake Effect */
+    @keyframes earthquake {
+      0% { transform: translate(1px, 1px) rotate(0deg); }
+      10% { transform: translate(-2px, -2px) rotate(-1deg); }
+      20% { transform: translate(-3px, 0px) rotate(1deg); }
+      30% { transform: translate(3px, 2px) rotate(0deg); }
+      40% { transform: translate(1px, -1px) rotate(1deg); }
+      50% { transform: translate(-1px, 2px) rotate(-1deg); }
+      60% { transform: translate(-3px, 1px) rotate(0deg); }
+      70% { transform: translate(3px, 1px) rotate(-1deg); }
+      80% { transform: translate(-1px, -1px) rotate(1deg); }
+      90% { transform: translate(1px, 2px) rotate(0deg); }
+      100% { transform: translate(1px, -2px) rotate(-1deg); }
+    }
+    .animate-earthquake { 
+        animation: earthquake 0.25s infinite; 
+        box-shadow: inset 0 0 150px rgba(14, 165, 233, 0.2);
+    }
+
+    /* Concert Strobe and Spark Effects */
+    @keyframes strobe {
+      0%, 100% { opacity: 0; }
+      10%, 14% { opacity: 0.5; }
+      12% { opacity: 0.8; }
+      50% { opacity: 0; }
+      60%, 64% { opacity: 0.3; }
+      62% { opacity: 0.6; }
+    }
+    .animate-strobe { animation: strobe 3.5s infinite; }
+
+    @keyframes spark-fly {
+      0% { transform: translateY(100vh) translateX(0px) scale(1); opacity: 0; }
+      10% { opacity: 1; }
+      100% { transform: translateY(-20vh) translateX(var(--drift, 0px)) scale(0.2); opacity: 0; }
+    }
+    .spark {
+      position: absolute;
+      top: 0;
+      width: 4px;
+      height: 24px;
+      border-radius: 50%;
+      animation: spark-fly linear infinite;
+    }
+
+    /* Narwhal Swarm Animation */
+    @keyframes swim-across {
+      0% { transform: translateX(-150vw) translateY(50px) rotate(-5deg); opacity: 0; }
+      15% { opacity: 1; }
+      50% { transform: translateX(0) translateY(-20px) rotate(5deg); }
+      85% { opacity: 1; }
+      100% { transform: translateX(150vw) translateY(30px) rotate(-5deg); opacity: 0; }
+    }
+    .animate-swim {
+      animation: swim-across 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+    }
+    
+    /* Range Slider Styling */
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      background: transparent;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 24px; width: 24px;
+      border-radius: 50%;
+      background: #f472b6;
+      cursor: pointer;
+      margin-top: -8px;
+      box-shadow: 0 0 10px #f472b6;
+    }
+    input[type=range]::-webkit-slider-runnable-track {
+      width: 100%; height: 8px;
+      cursor: pointer;
+      background: #1e293b;
+      border-radius: 4px;
+      border: 1px solid #334155;
+    }
+    input[type=range]:focus { outline: none; }
+  </style>
+</head>
+<body class="text-slate-100 font-sans">
+
+  <div id="root" class="h-full w-full flex flex-col justify-center items-center"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+    // --- GOOGLE SHEETS INTEGRATION CONFIG ---
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxzS05w7mUKfoU1dtBIYd_g1M6ssqBPhJjYmQ-fT8Jkm2PVwrx9w0EK2Jx4skZBtzYO/exec"; 
+
+    // --- GAME CONSTANTS ---
+    const CANVAS_WIDTH = 800;
+    const CANVAS_HEIGHT = 500;
+    const ZONE_START = 100;
+    const ZONE_WIDTH = 600;
+    const ZONE_END = 700;
+
+    // --- BASIC PROFANITY FILTER ---
+    const PROFANITY_LIST = [
+        "fuck", "shit", "bitch", "ass", "damn", "crap", "cunt", "dick", "cock", 
+        "pussy", "slut", "whore", "fag", "nigger", "bastard", "douche", "sex", 
+        "porn", "boob", "tits", "vagina", "penis"
+    ];
+
+    // --- EXPANDED GRADES 1-3 SUBJECT WORD BANKS ---
+    const CURRICULUM_WORDS = {
+      math: ["fraction", "multiply", "division", "addition", "triangle", "graph", "patterns", "estimate", "measure", "perimeter", "subtract", "vertex", "sum", "total", "equal", "minus", "shape", "time", "clock", "coin", "count", "even", "odd", "tens", "ones", "number", "value"],
+      language: ["pronoun", "sentence", "adjective", "paragraph", "spelling", "grammar", "syllable", "vowel", "consonant", "singular", "plural", "rhyme", "noun", "verb", "read", "write", "letter", "word", "book", "story", "page", "spell", "poem", "author", "title"],
+      science: ["habitat", "climate", "skeleton", "muscle", "gravity", "force", "energy", "plants", "soil", "liquids", "solids", "gases", "bug", "leaf", "root", "sun", "moon", "star", "rain", "snow", "wind", "cloud", "water", "ice", "animal", "earth", "space"],
+      social: ["community", "pioneer", "indigenous", "province", "citizen", "heritage", "maple", "geography", "government", "democracy", "resources", "city", "town", "map", "globe", "rules", "safe", "help", "flag", "leader", "past", "family", "world", "place"],
+      arts: ["shading", "texture", "portrait", "sculpture", "symmetry", "contrast", "harmony", "palette", "rhythm", "canvas", "secondary", "primary", "draw", "paint", "color", "line", "shape", "clay", "sing", "song", "dance", "play", "role", "music", "beat"],
+      health: ["nutrition", "vitamin", "exercise", "hygiene", "hydrate", "safety", "protein", "healthy", "balanced", "fitness", "strength", "wellness", "food", "wash", "brush", "sleep", "rest", "play", "safe", "run", "jump", "body", "mind", "teeth", "clean"],
+      physed: ["warmup", "stretch", "jogging", "balance", "agility", "teamwork", "safety", "dribble", "catch", "throw", "coordination", "athlete", "run", "jump", "hop", "skip", "tag", "game", "play", "fast", "slow", "team", "ball", "goal", "move"],
+      french: ["bonjour", "merci", "pomme", "crayon", "fenetre", "famille", "rouge", "jaune", "soleil", "ecole", "livre", "oiseau", "oui", "non", "un", "deux", "trois", "chat", "chien", "bleu", "vert", "noir", "blanc", "fille", "garcon", "eau"],
+      pokemon: ["pikachu", "charizard", "bulbasaur", "squirtle", "eevee", "jigglypuff", "snorlax", "mewtwo", "gengar", "gardevoir", "rayquaza", "lucario", "mew", "ditto", "pichu", "togepi", "snivy", "tepig", "oshawott", "lugia", "hooh", "celebi", "mudkip", "piplup"],
+      punctuation: [".", ",", "!", "?", "@", "#", "$", "&", "*", "(", ")"],
+      custom: [] // Populated by user
+    };
+
+    // --- EXPANDED TUTORIAL PROGRESSION LEVELS ---
+    const TUTORIAL_STEPS = [
+      null,
+      {
+        title: "Training Step 1: Single Letters (Left Hand) ✋",
+        instructions: "Rest your left hand fingers on A, S, D, F. Type the single letters!",
+        words: ["a", "s", "d", "f", "a", "d", "s", "f", "a", "s"]
+      },
+      {
+        title: "Training Step 2: Single Letters (Right Hand) ✋",
+        instructions: "Rest your right hand fingers on J, K, L. Type the single letters!",
+        words: ["j", "k", "l", "j", "l", "k", "k", "j", "l", "j"]
+      },
+      {
+        title: "Training Step 3: Left Hand Patterns ✋",
+        instructions: "Now combine the left hand letters into small patterns.",
+        words: ["asdf", "fads", "sad", "fad", "add", "dad"]
+      },
+      {
+        title: "Training Step 4: Right Hand Patterns ✋",
+        instructions: "Now combine the right hand letters into small patterns.",
+        words: ["jkl", "lkj", "kjl", "jkl", "lkj"]
+      },
+      {
+        title: "Training Step 5: Full Home Row Combined 🤝",
+        instructions: "Combine both hands together. Try to type without looking down!",
+        words: ["asdfjkl", "salad", "flask", "glad", "half", "fall", "lass", "dad"]
+      },
+      {
+        title: "Training Step 6: Simple Grade 3 Speller 📝",
+        instructions: "Fabulous! Let's put your home row muscle memory to work on real curriculum words.",
+        words: ["map", "soil", "art", "safe", "rhyme", "scale", "seed", "force"]
+      }
+    ];
+
+    // Dynamic Keyboard Layouts
+    const ALPHABET_LAYOUT = [
+      ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
+      ["a", "s", "d", "f", "g", "h", "j", "k", "l"],
+      ["z", "x", "c", "v", "b", "n", "m"]
+    ];
+
+    const PUNCTUATION_LAYOUT = [
+      ["!", "@", "#", "$", "%", "^", "&", "*", "(", ")"],
+      [".", ",", "?", "-", "_", "+", "="]
+    ];
+
+    const DIFFICULTY_LEVELS = ['training', 'medium', 'expert', 'narwhal'];
+
+    // --- PROCEDURAL AUDIO ENGINE (80s/90s Rock & DJ Synth) ---
+    const AudioEngine = {
+        ctx: null,
+        nextNoteTime: 0,
+        currentStep: 0,
+        timerID: null,
+        isPlaying: false,
+        isMuted: false,
+        bpm: 120,
+        mode: 'medium',
+        theme: 'rock',
+
+        init() {
+            if (!this.ctx) {
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (this.ctx.state === 'suspended') this.ctx.resume();
+        },
+
+        playOsc(type, freq, time, duration, vol) {
+            if (this.isMuted) return;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = type;
+            osc.frequency.value = freq;
+            
+            gain.gain.setValueAtTime(0, time);
+            gain.gain.linearRampToValueAtTime(vol, time + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(time);
+            osc.stop(time + duration);
+        },
+
+        playNoise(time, duration, vol) {
+            if (this.isMuted) return;
+            const bufferSize = this.ctx.sampleRate * duration;
+            const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+            
+            const noise = this.ctx.createBufferSource();
+            noise.buffer = buffer;
+            const gain = this.ctx.createGain();
+            
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = 'highpass';
+            filter.frequency.value = 1000;
+
+            gain.gain.setValueAtTime(vol, time);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.ctx.destination);
+            noise.start(time);
+        },
+
+        scheduleNote() {
+            if (!this.isPlaying) return;
+            const secondsPerBeat = 60.0 / this.bpm;
+            const timeSpan = secondsPerBeat * 0.25; // 16th notes
+
+            while (this.nextNoteTime < this.ctx.currentTime + 0.1) {
+                this.playStep(this.currentStep, this.nextNoteTime);
+                this.nextNoteTime += timeSpan;
+                this.currentStep = (this.currentStep + 1) % 16;
+            }
+            this.timerID = requestAnimationFrame(this.scheduleNote.bind(this));
+        },
+
+        playStep(step, time) {
+            // Base Drum Kit
+            if (step % 4 === 0) this.playOsc('sine', 50, time, 0.4, 0.8); // Kick
+            if (step % 8 === 4) this.playNoise(time, 0.2, 0.4); // Snare
+            if (step % 2 === 0) this.playNoise(time, 0.05, 0.08); // Hi-hat
+
+            const rootFreq = 65.41; // C2
+
+            if (this.theme === 'rock') {
+                if (this.mode === 'training') {
+                    // Slow steady bass
+                    if (step % 4 === 0) this.playOsc('sawtooth', rootFreq, time, 0.4, 0.25);
+                } else if (this.mode === 'medium') {
+                    // Syncopated Groove
+                    const notes = [rootFreq, 0, rootFreq, 0, rootFreq*1.189, 0, rootFreq*1.334, 0, rootFreq, 0, rootFreq, 0, rootFreq*0.89, 0, rootFreq*0.89, 0];
+                    if (notes[step]) this.playOsc('square', notes[step], time, 0.3, 0.25);
+                } else {
+                    // Galloping 16ths (Expert/Narwhal)
+                    const notes = [rootFreq, rootFreq, rootFreq, 0, rootFreq*1.189, rootFreq*1.189, rootFreq*1.189, 0, rootFreq*1.334, rootFreq*1.334, rootFreq*1.334, 0, rootFreq*1.498, 0, rootFreq*1.498, 0];
+                    if (notes[step]) this.playOsc('sawtooth', notes[step], time, 0.15, 0.25);
+                }
+            } else {
+                // DJ / Electronic Theme
+                if (step % 8 === 0) this.playOsc('sine', rootFreq * 0.5, time, 0.8, 0.5); // Deep sub
+
+                const arp = [rootFreq*2, rootFreq*3, rootFreq*4, rootFreq*3];
+                if (this.mode === 'training') {
+                     if (step % 4 === 0) this.playOsc('triangle', arp[(step/4)%4], time, 0.3, 0.15);
+                } else {
+                     this.playOsc('triangle', arp[step%4], time, 0.15, 0.15); // Fast arpeggio
+                }
+            }
+        },
+
+        start(mode, theme) {
+            this.mode = mode;
+            this.theme = theme;
+            
+            if (mode === 'training') this.bpm = 90;
+            else if (mode === 'medium') this.bpm = 120;
+            else if (mode === 'expert') this.bpm = 150;
+            else if (mode === 'narwhal') this.bpm = 180;
+
+            this.init();
+            if (!this.isPlaying) {
+                this.isPlaying = true;
+                this.currentStep = 0;
+                this.nextNoteTime = this.ctx.currentTime + 0.1;
+                this.scheduleNote();
+            }
+        },
+
+        stop() {
+            this.isPlaying = false;
+            if (this.timerID) cancelAnimationFrame(this.timerID);
+        },
+        
+        toggleMute() {
+            this.isMuted = !this.isMuted;
+            return this.isMuted;
+        }
+    };
+
+
+    const App = () => {
+      // --- CORE STATES ---
+      const [studentName, setStudentName] = useState('');
+      const [difficulty, setDifficulty] = useState('medium'); 
+      const [trainingSpeed, setTrainingSpeed] = useState(0.8); // Custom training speed slider state
+      const [activeSubject, setActiveSubject] = useState('math');
+      const [customWordsInput, setCustomWordsInput] = useState('');
+      const [lobbyError, setLobbyError] = useState('');
+
+      const [gameStarted, setGameStarted] = useState(false);
+      const [showTutorialMenu, setShowTutorialMenu] = useState(false);
+      const [tutorialStep, setTutorialStep] = useState(0); 
+      
+      const [status, setStatus] = useState('playing'); 
+      const [message, setMessage] = useState('');
+      const [showContinueOffer, setShowContinueOffer] = useState(false);
+      const [hasContinued, setHasContinued] = useState(false);
+      const [isGameOver, setIsGameOver] = useState(false);
+      const [isPaused, setIsPaused] = useState(false);
+      const [sheetStatus, setSheetStatus] = useState('idle');
+      
+      const [narwhalUnlocked, setNarwhalUnlocked] = useState(false); 
+      const [djFinnUnlocked, setDjFinnUnlocked] = useState(false);
+      const [activeTheme, setActiveTheme] = useState('rock'); 
+      const [musicMuted, setMusicMuted] = useState(false);
+
+      const [hud, setHud] = useState({ score: 0, streak: 0, health: 5, completed: 0, energy: 50, nextExpectedChar: '', isShaking: false, narwhalTrigger: 0 });
+
+      // --- ENGINE REFS ---
+      const canvasRef = useRef(null);
+      const requestRef = useRef();
+      const themeRef = useRef(activeTheme);
+      
+      useEffect(() => { themeRef.current = activeTheme; }, [activeTheme]);
+      
+      const lastTimeRef = useRef(0);
+      const gameTimeRef = useRef(0);
+      const lastSpawnTimeRef = useRef(0);
+      
+      const wordsRef = useRef([]);
+      const activeWordIdRef = useRef(null);
+      const statsRef = useRef({ score: 0, streak: 0, maxStreak: 0, health: 5, completed: 0, energy: 50, zeroEnergyWords: 0, narwhalTrigger: 0, bossState: 'none', bossTimer: 0, bossWordsCleared: 0, bossWordsSpawned: 0, bossTriggered: false, globalSpeedBoost: 1.0, correctKeysPressed: 0, totalKeysPressed: 0 });
+      const particlesRef = useRef([]);
+      const keysQueueRef = useRef([]);
+
+      // --- CONFIGURATION ---
+      const targetWordsToWin = useMemo(() => {
+        if (tutorialStep > 0) return TUTORIAL_STEPS[tutorialStep].words.length;
+        if (difficulty === 'medium') return 30;
+        if (difficulty === 'expert') return 50;
+        if (difficulty === 'narwhal') return 75;
+        return 30;
+      }, [difficulty, tutorialStep]);
+
+      const getSpeedMultiplier = useCallback(() => {
+        if (difficulty === 'training') return parseFloat(trainingSpeed);
+        if (difficulty === 'medium') return 0.9;
+        if (difficulty === 'expert') return 1.6;
+        if (difficulty === 'narwhal') return 2.6;
+        return 1.0;
+      }, [difficulty, trainingSpeed]);
+
+      // --- GAME CONTROLLERS ---
+      const handleStartGame = (e) => {
+        e.preventDefault();
+        setLobbyError('');
+
+        if (studentName.trim().length === 0) return;
+
+        // Custom Words Processing & Filtering
+        if (activeSubject === 'custom') {
+            const rawWords = customWordsInput.split(/[\s,]+/).map(w => w.trim().toLowerCase()).filter(w => w.length > 0);
+            const cleanWords = rawWords.filter(w => !PROFANITY_LIST.some(bad => w.includes(bad)));
+            
+            if (cleanWords.length === 0) {
+                setLobbyError("Please provide a valid list of spelling words (no profanity allowed).");
+                return;
+            }
+            CURRICULUM_WORDS.custom = cleanWords;
+        }
+
+        if (difficulty === 'training') {
+          setShowTutorialMenu(true);
+          setTutorialStep(1);
+        } else {
+          setTutorialStep(0);
+          setShowTutorialMenu(false);
+          AudioEngine.start(difficulty, activeTheme);
+        }
+        setGameStarted(true);
+      };
+
+      const handleLaunchTraining = () => {
+          setShowTutorialMenu(false);
+          AudioEngine.start('training', activeTheme);
+          initLevelData();
+      };
+
+      const handleResetToLobby = () => {
+        setGameStarted(false);
+        setIsGameOver(false);
+        setShowTutorialMenu(false);
+        setShowContinueOffer(false);
+        setIsPaused(false);
+        setTutorialStep(0);
+        setStatus('playing');
+        setMessage('');
+        setSheetStatus('idle');
+        AudioEngine.stop();
+      };
+
+      const handleContinue = () => {
+        setHasContinued(true);
+        setShowContinueOffer(false);
+        statsRef.current.health = 5; 
+        statsRef.current.energy = 50; 
+        statsRef.current.zeroEnergyWords = 0;
+        setStatus('playing');
+        AudioEngine.start(difficulty, activeTheme);
+      };
+
+      const handleDemoteDifficulty = () => {
+          let currentIndex = DIFFICULTY_LEVELS.indexOf(difficulty);
+          if (currentIndex > 0) {
+              setDifficulty(DIFFICULTY_LEVELS[currentIndex - 1]);
+              AudioEngine.start(DIFFICULTY_LEVELS[currentIndex - 1], activeTheme);
+          }
+          initLevelData();
+      };
+
+      const toggleMusic = () => {
+          const isNowMuted = AudioEngine.toggleMute();
+          setMusicMuted(isNowMuted);
+      };
+
+      // Handle Music state across Pauses/Game Over
+      useEffect(() => {
+          if (isPaused || status !== 'playing') {
+              AudioEngine.stop();
+          } else if (gameStarted && !showTutorialMenu && status === 'playing') {
+              AudioEngine.start(difficulty, activeTheme);
+          }
+      }, [isPaused, status, gameStarted, showTutorialMenu, difficulty, activeTheme]);
+
+      useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = CANVAS_WIDTH * dpr;
+        canvas.height = CANVAS_HEIGHT * dpr;
+        const ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
+      }, [gameStarted, showTutorialMenu, status, showContinueOffer, isGameOver, activeTheme]);
+
+      const initLevelData = useCallback(() => {
+        wordsRef.current = [];
+        activeWordIdRef.current = null;
+        particlesRef.current = [];
+        keysQueueRef.current = [];
+        statsRef.current = { score: 0, streak: 0, maxStreak: 0, health: 5, completed: 0, energy: 50, zeroEnergyWords: 0, narwhalTrigger: 0, bossState: 'none', bossTimer: 0, bossWordsCleared: 0, bossWordsSpawned: 0, bossTriggered: false, globalSpeedBoost: 1.0, correctKeysPressed: 0, totalKeysPressed: 0 };
+        
+        lastTimeRef.current = performance.now();
+        gameTimeRef.current = 0;
+        lastSpawnTimeRef.current = 0; 
+        
+        setHud({ score: 0, streak: 0, health: 5, completed: 0, energy: 50, nextExpectedChar: '', isShaking: false, narwhalTrigger: 0 });
+        setStatus('playing');
+        setMessage('');
+        setIsGameOver(false);
+        setHasContinued(false);
+        setIsPaused(false);
+      }, []);
+
+      useEffect(() => {
+        if (gameStarted && !showTutorialMenu && status === 'playing') {
+          initLevelData();
+        }
+      }, [gameStarted, showTutorialMenu, initLevelData, tutorialStep, activeSubject]);
+
+      // --- KEYBOARD LISTENER ---
+      useEffect(() => {
+        const handleKeyDown = (e) => {
+          if (!gameStarted || isGameOver || showTutorialMenu || status !== 'playing' || showContinueOffer) return;
+          const key = e.key.toLowerCase();
+          
+          if (key === 'escape') {
+              setIsPaused(prev => !prev);
+              return;
+          }
+
+          if (isPaused) return;
+          
+          if (key === 'tab') {
+             e.preventDefault();
+             keysQueueRef.current.push('tab');
+          } else if (/^.$/.test(key)) {
+             // Accept any single character 
+             keysQueueRef.current.push(key);
+          }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+      }, [gameStarted, isGameOver, showTutorialMenu, status, showContinueOffer, isPaused]);
+
+      // --- THE UNIFIED PHYSICS & RENDER LOOP ---
+      const updatePhysics = useCallback((time) => {
+        if (status !== 'playing' || showContinueOffer || isGameOver || showTutorialMenu) {
+            requestRef.current = requestAnimationFrame(updatePhysics);
+            return;
+        }
+
+        const ctx = canvasRef.current?.getContext('2d');
+        if (!ctx) return;
+
+        const deltaTime = time - (lastTimeRef.current || time);
+        lastTimeRef.current = time;
+
+        let words = wordsRef.current;
+        let activeId = activeWordIdRef.current;
+        let stats = statsRef.current;
+        let particles = particlesRef.current;
+
+        // Execute physics & logic ONLY if game is not paused
+        if (!isPaused) {
+            gameTimeRef.current += deltaTime;
+
+            const bossTargetCount = difficulty === 'narwhal' ? 3 : difficulty === 'expert' ? 2 : 1;
+
+            // --- BOSS MECHANIC: THE NEGABOR ---
+            if (tutorialStep === 0 && stats.completed === Math.floor(targetWordsToWin / 2) && !stats.bossTriggered) {
+                stats.bossTriggered = true;
+                stats.bossState = 'intro';
+                stats.bossTimer = gameTimeRef.current;
+                stats.globalSpeedBoost = 1.5; // 50% faster!
+                // Play a jarring noise to alert the player
+                AudioEngine.playNoise(AudioEngine.ctx?.currentTime || 0, 0.5, 0.8);
+            }
+
+            if (stats.bossState === 'intro' && gameTimeRef.current - stats.bossTimer > 2000) {
+                stats.bossState = 'active';
+            }
+
+            if (stats.bossState === 'won' || stats.bossState === 'lost') {
+                if (gameTimeRef.current - stats.bossTimer > 3000) {
+                    stats.bossState = 'none';
+                }
+            }
+
+            // --- SPAWNER LOGIC ---
+            const spawnDelayMs = difficulty === 'narwhal' ? 1200 : difficulty === 'expert' ? 1800 : 2800;
+            
+            if (gameTimeRef.current - lastSpawnTimeRef.current > spawnDelayMs) {
+                // If boss is active, occasionally forcefully spawn the boss word
+                if (stats.bossState === 'active' && stats.bossWordsSpawned < bossTargetCount && !words.some(w => w.isBossWord)) {
+                    const approxWordWidth = 7 * 15 + 32;
+                    let minX = ZONE_START + approxWordWidth / 2 + 10;
+                    let maxX = ZONE_END - approxWordWidth / 2 - 10;
+                    const clampedX = minX + Math.random() * (maxX - minX);
+
+                    words.push({
+                        id: Math.random(),
+                        text: "negabor",
+                        typedCount: 0,
+                        x: clampedX,
+                        y: -20,
+                        speed: getSpeedMultiplier() * 1.2, // Base speed (global boost applied later)
+                        isNarwhal: false,
+                        isStarPower: false,
+                        isBossWord: true
+                    });
+                    stats.bossWordsSpawned++;
+                    lastSpawnTimeRef.current = gameTimeRef.current;
+                } 
+                else if (stats.bossState !== 'intro') {
+                    // Normal Spawning (paused during intro)
+                    let wordList = tutorialStep > 0 ? TUTORIAL_STEPS[tutorialStep].words : CURRICULUM_WORDS[activeSubject];
+                    
+                    if (wordList && wordList.length > 0) {
+                        let randomWord = wordList[Math.floor(Math.random() * wordList.length)];
+                        let isNarwhal = false;
+                        let isStarPower = false;
+                        let wordSpeed = getSpeedMultiplier() * (1 + Math.random() * 0.4);
+
+                        // Star Power Solo Note Spawn (15% chance, Neon Gold, drops 1.5x faster)
+                        if (tutorialStep === 0 && Math.random() < 0.18) {
+                            isStarPower = true;
+                            wordSpeed *= 1.5;
+                        }
+
+                        // Narwhal Ultimate Bonus Drop
+                        if (tutorialStep === 0 && !isStarPower && Math.random() < 0.08) {
+                            randomWord = "narwhal";
+                            isNarwhal = true;
+                            wordSpeed *= 2.0; 
+                        }
+                        
+                        const approxWordWidth = randomWord.length * 15 + 32;
+                        let minX = ZONE_START + approxWordWidth / 2 + 10;
+                        let maxX = ZONE_END - approxWordWidth / 2 - 10;
+
+                        if (minX > maxX) {
+                            minX = ZONE_START + ZONE_WIDTH / 2;
+                            maxX = ZONE_START + ZONE_WIDTH / 2;
+                        }
+
+                        const clampedX = minX + Math.random() * (maxX - minX);
+
+                        words.push({
+                            id: Math.random(),
+                            text: randomWord,
+                            typedCount: 0,
+                            x: clampedX,
+                            y: -20,
+                            speed: wordSpeed,
+                            isNarwhal: isNarwhal,
+                            isStarPower: isStarPower,
+                            isBossWord: false
+                        });
+                    }
+                    lastSpawnTimeRef.current = gameTimeRef.current;
+                }
+            }
+
+            // 2. Process Input Queue
+            while (keysQueueRef.current.length > 0) {
+                const key = keysQueueRef.current.shift();
+
+                if (key === 'tab') {
+                    if (words.length > 0) {
+                        const sorted = [...words].sort((a,b) => b.y - a.y);
+                        const currentIdx = sorted.findIndex(w => w.id === activeId);
+                        const nextIdx = (currentIdx + 1) % sorted.length;
+                        activeId = sorted[nextIdx].id;
+                        if (sorted[nextIdx].typedCount > 0) {
+                          sorted[nextIdx].typedCount = 0; 
+                        }
+                    }
+                } else {
+                    stats.totalKeysPressed = (stats.totalKeysPressed || 0) + 1;
+                    if (!activeId) {
+                        const target = [...words].sort((a,b) => b.y - a.y).find(w => w.text[0] === key);
+                        if (target) {
+                            stats.correctKeysPressed = (stats.correctKeysPressed || 0) + 1;
+                            activeId = target.id;
+                            target.typedCount = 1;
+                            stats.streak++;
+                            stats.maxStreak = Math.max(stats.maxStreak, stats.streak);
+                            stats.score += target.isStarPower ? 30 : 10;
+                            
+                            stats.energy = Math.min(100, stats.energy + 4);
+                            if (stats.energy > 0) stats.zeroEnergyWords = 0;
+                            
+                            const colorPalette = target.isStarPower ? ['#f59e0b', '#fbbf24', '#ffffff'] : ['#10b981', '#34d399', '#ffffff'];
+                            for(let i=0; i<10; i++) {
+                              particles.push({ 
+                                x: target.x, y: target.y, vx: (Math.random()-0.5)*10, vy: (Math.random()-0.5)*10 - 2, 
+                                size: Math.random()*5+2, color: colorPalette[Math.floor(Math.random()*colorPalette.length)], opacity: 1 
+                              });
+                            }
+
+                            if (target.typedCount === target.text.length) {
+                                if (target.isNarwhal) { 
+                                    stats.score += 500; 
+                                    stats.health = Math.min(5, stats.health + 1); 
+                                    stats.narwhalTrigger = gameTimeRef.current; 
+                                }
+                                else if (target.isStarPower) { stats.score += 300; } 
+                                else if (target.isBossWord) {
+                                    stats.score += 1000;
+                                    stats.bossWordsCleared++;
+                                    // Succeeded Boss Fight!
+                                    if (stats.bossWordsCleared >= bossTargetCount) {
+                                        stats.bossState = 'won';
+                                        stats.bossTimer = gameTimeRef.current;
+                                        stats.globalSpeedBoost = 1.0;
+                                        stats.energy = 100; // Reward: Fill energy
+                                    }
+                                }
+                                else stats.score += 100;
+                                
+                                stats.completed++;
+                                if (stats.energy === 0) stats.zeroEnergyWords++; 
+
+                                words = words.filter(w => w.id !== target.id);
+                                activeId = null;
+                                for(let i=0; i<20; i++) particles.push({ x: target.x, y: target.y, vx: (Math.random()-0.5)*14, vy: (Math.random()-0.5)*14, size: Math.random()*7+2, color: '#f59e0b', opacity: 1 });
+                            }
+                        } else {
+                            // MISTAKE LOGIC
+                            stats.streak = 0;
+                            const prevEnergy = stats.energy;
+                            stats.energy = Math.max(0, stats.energy - 10); 
+                            
+                            if (stats.energy === 0 && prevEnergy > 0) {
+                                stats.health -= 1;
+                                stats.score = Math.max(0, stats.score - 50);
+                                for(let i=0; i<15; i++) particles.push({ x: CANVAS_WIDTH/2, y: CANVAS_HEIGHT/2, vx: (Math.random()-0.5)*20, vy: (Math.random()-0.5)*20, size: Math.random()*6+3, color: '#ef4444', opacity: 1 });
+                            }
+                        }
+                    } else {
+                        const target = words.find(w => w.id === activeId);
+                        if (target) {
+                            if (target.text[target.typedCount] === key) {
+                                stats.correctKeysPressed = (stats.correctKeysPressed || 0) + 1;
+                                target.typedCount++;
+                                stats.streak++;
+                                stats.maxStreak = Math.max(stats.maxStreak, stats.streak);
+                                stats.score += target.isStarPower ? 45 : 15;
+
+                                stats.energy = Math.min(100, stats.energy + 4);
+                                if (stats.energy > 0) stats.zeroEnergyWords = 0; 
+                                
+                                const colorPalette = target.isStarPower ? ['#fbbf24', '#f59e0b', '#ef4444'] : ['#c084fc', '#a855f7', '#3b82f6'];
+                                for(let i=0; i<8; i++) {
+                                  particles.push({ 
+                                    x: target.x, y: target.y, vx: (Math.random()-0.5)*10, vy: (Math.random()-0.5)*10 - 2, 
+                                    size: Math.random()*5+2, color: colorPalette[Math.floor(Math.random()*colorPalette.length)], opacity: 1 
+                                  });
+                                }
+
+                                if (target.typedCount === target.text.length) {
+                                    if (target.isNarwhal) { 
+                                        stats.score += 500; 
+                                        stats.health = Math.min(5, stats.health + 1); 
+                                        stats.narwhalTrigger = gameTimeRef.current;
+                                    }
+                                    else if (target.isStarPower) { stats.score += 300; }
+                                    else if (target.isBossWord) {
+                                        stats.score += 1000;
+                                        stats.bossWordsCleared++;
+                                        // Succeeded Boss Fight!
+                                        if (stats.bossWordsCleared >= bossTargetCount) {
+                                            stats.bossState = 'won';
+                                            stats.bossTimer = gameTimeRef.current;
+                                            stats.globalSpeedBoost = 1.0;
+                                            stats.energy = 100; // Reward: Fill energy
+                                        }
+                                    }
+                                    else stats.score += 100;
+                                    
+                                    stats.completed++;
+                                    if (stats.energy === 0) stats.zeroEnergyWords++;
+
+                                    words = words.filter(w => w.id !== target.id);
+                                    activeId = null;
+                                    for(let i=0; i<20; i++) particles.push({ x: target.x, y: target.y, vx: (Math.random()-0.5)*14, vy: (Math.random()-0.5)*14, size: Math.random()*8+2, color: '#ec4899', opacity: 1 });
+                                }
+                            } else {
+                                // MISTAKE LOGIC
+                                stats.streak = 0; 
+                                const prevEnergy = stats.energy;
+                                stats.energy = Math.max(0, stats.energy - 10);
+                                if (stats.energy === 0 && prevEnergy > 0) {
+                                    stats.health -= 1;
+                                    stats.score = Math.max(0, stats.score - 50);
+                                    for(let i=0; i<15; i++) particles.push({ x: target.x, y: target.y, vx: (Math.random()-0.5)*20, vy: (Math.random()-0.5)*20, size: Math.random()*6+3, color: '#ef4444', opacity: 1 });
+                                }
+                            }
+                        } else {
+                            activeId = null; 
+                        }
+                    }
+                }
+            }
+
+            // 3. Movement & Collision
+            let crashedCount = 0;
+            words.forEach(w => {
+                w.y += (w.speed * stats.globalSpeedBoost); // Global speed modifier applied
+                if (w.y >= CANVAS_HEIGHT - 60) {
+                    crashedCount++;
+                    w.crashed = true;
+                    if (stats.energy === 0) stats.zeroEnergyWords++; 
+                    
+                    if (w.isBossWord && stats.bossState === 'active') {
+                        // Failed Boss Fight!
+                        stats.bossState = 'lost';
+                        stats.bossTimer = gameTimeRef.current;
+                        stats.globalSpeedBoost = 1.0;
+                        stats.energy = Math.min(stats.energy, difficulty === 'narwhal' ? 10 : difficulty === 'expert' ? 25 : 50);
+                    }
+                }
+            });
+
+            if (crashedCount > 0) {
+                stats.streak = 0;
+                if (tutorialStep === 0) {
+                    stats.health -= crashedCount;
+                }
+                words = words.filter(w => !w.crashed);
+                if (!words.some(w => w.id === activeId)) activeId = null;
+                
+                // Clear remaining boss words if fight was lost
+                if (stats.bossState === 'lost') {
+                    words = words.filter(w => !w.isBossWord);
+                }
+            }
+
+            const isEarthquakeActive = !!(activeId && words.find(w => w.id === activeId && w.isNarwhal)) || stats.bossState === 'intro' || stats.bossState === 'active';
+
+            wordsRef.current = words;
+            activeWordIdRef.current = activeId;
+            statsRef.current = stats;
+            particlesRef.current = particles;
+
+            let expectedChar = '';
+            if (activeId) {
+                const w = words.find(w => w.id === activeId);
+                if (w && w.typedCount < w.text.length) expectedChar = w.text[w.typedCount];
+            } else if (words.length > 0) {
+                const sorted = [...words].sort((a,b) => b.y - a.y);
+                expectedChar = sorted[0].text[0];
+            }
+
+            setHud(prev => {
+                if (prev.score !== stats.score || prev.streak !== stats.streak || prev.health !== stats.health || prev.completed !== stats.completed || prev.energy !== stats.energy || prev.nextExpectedChar !== expectedChar || prev.isShaking !== isEarthquakeActive || prev.narwhalTrigger !== stats.narwhalTrigger) {
+                    return { score: stats.score, streak: stats.streak, health: stats.health, completed: stats.completed, energy: stats.energy, nextExpectedChar: expectedChar, isShaking: isEarthquakeActive, narwhalTrigger: stats.narwhalTrigger };
+                }
+                return prev;
+            });
+
+            // 4. State Triggers (Demote, Win, Loss)
+            if (stats.zeroEnergyWords >= 7 && status === 'playing') {
+                setStatus('demote'); 
+            } else if (stats.health <= 0) {
+                setStatus('crashed'); 
+                if (!hasContinued) setShowContinueOffer(true);
+                else setIsGameOver(true);
+            } else if (stats.completed >= targetWordsToWin) {
+                setStatus('won');
+                if (difficulty === 'expert') setNarwhalUnlocked(true);
+                if (difficulty === 'narwhal') setDjFinnUnlocked(true); 
+
+                if (tutorialStep === 1) setMessage("Great single finger strikes! Prepare for the right hand.");
+                else if (tutorialStep === 2) setMessage("Epic right-hand alignment! Time to combine for patterns.");
+                else if (tutorialStep === 3) setMessage("Nice left hand rhythm! Now onto right hand patterns.");
+                else if (tutorialStep === 4) setMessage("Perfect right hand combos! Now let's integrate the whole home row.");
+                else if (tutorialStep === 5) setMessage("Incredible double-handed rhythm! Ready to shred the actual curriculum words!");
+                else if (tutorialStep === 6) setMessage("You have conquered basic training! Click below to enter the Arena and start your tour.");
+                else {
+                    if (difficulty === 'narwhal') setMessage(`Epic Solos Complete! 🎧 DJ FINN MODE UNLOCKED! Enable it in the Main Menu!`);
+                    else if (difficulty === 'expert') setMessage(`Phenomenal concert! You cleared all ${targetWordsToWin} words! 🐋 NARWHAL MODE UNLOCKED!`);
+                    else setMessage(`Phenomenal concert! You cleared all ${targetWordsToWin} words!`);
+                }
+            }
+        }
+
+        // --- 5. RENDER CANVAS ---
+        ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        
+        const currentTheme = themeRef.current;
+        const isMaxEnergy = stats.energy >= 100;
+
+        if (currentTheme === 'dj') {
+            ctx.fillStyle = '#080c1f'; 
+            ctx.fillRect(ZONE_START, 0, ZONE_WIDTH, CANVAS_HEIGHT);
+            ctx.strokeStyle = '#1e3a8a';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(ZONE_START, 0, ZONE_WIDTH, CANVAS_HEIGHT);
+
+            const laneColors = ['#0ea5e9', '#d946ef', '#10b981'];
+            const numLanes = 3;
+            const laneWidth = ZONE_WIDTH / numLanes;
+            
+            for (let i = 0; i < numLanes; i++) {
+                const cx = ZONE_START + i * laneWidth + laneWidth / 2;
+                ctx.strokeStyle = `rgba(${i===0?'14,165,233':i===1?'217,70,239':'16,185,129'}, 0.15)`;
+                ctx.lineWidth = 20;
+                ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, CANVAS_HEIGHT); ctx.stroke();
+                
+                ctx.fillStyle = laneColors[i];
+                ctx.shadowColor = laneColors[i];
+                ctx.shadowBlur = isMaxEnergy ? 30 : 15; 
+                ctx.beginPath(); ctx.arc(cx, CANVAS_HEIGHT - 60, 24, 0, Math.PI * 2); ctx.fill();
+                
+                ctx.fillStyle = '#0f172a';
+                ctx.shadowBlur = 0;
+                ctx.beginPath(); ctx.arc(cx, CANVAS_HEIGHT - 60, 6, 0, Math.PI * 2); ctx.fill();
+            }
+
+            const djGradient = ctx.createLinearGradient(ZONE_START, CANVAS_HEIGHT - 60, ZONE_END, CANVAS_HEIGHT - 60);
+            djGradient.addColorStop(0, isMaxEnergy ? '#ffffff' : '#0ea5e9'); 
+            djGradient.addColorStop(0.5, isMaxEnergy ? '#ffffff' : '#d946ef'); 
+            djGradient.addColorStop(1, isMaxEnergy ? '#ffffff' : '#0ea5e9');
+            
+            ctx.strokeStyle = djGradient;
+            ctx.lineWidth = isMaxEnergy ? 10 : 6;
+            ctx.shadowColor = '#0ea5e9';
+            ctx.shadowBlur = isMaxEnergy ? 25 : 0;
+            ctx.beginPath(); ctx.moveTo(ZONE_START, CANVAS_HEIGHT - 60); ctx.lineTo(ZONE_END, CANVAS_HEIGHT - 60); ctx.stroke();
+            ctx.shadowBlur = 0;
+        } else {
+            ctx.fillStyle = '#060b17'; 
+            ctx.fillRect(ZONE_START, 0, ZONE_WIDTH, CANVAS_HEIGHT);
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(ZONE_START, 0, ZONE_WIDTH, CANVAS_HEIGHT);
+
+            const stringColors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#ec4899'];
+            const numStrings = 5;
+            const stringGap = ZONE_WIDTH / (numStrings + 1);
+            for (let i = 1; i <= numStrings; i++) {
+                const sx = ZONE_START + i * stringGap;
+                ctx.strokeStyle = 'rgba(71, 85, 105, 0.25)';
+                ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx, CANVAS_HEIGHT); ctx.stroke();
+                
+                ctx.fillStyle = stringColors[i - 1];
+                ctx.shadowColor = stringColors[i - 1];
+                ctx.shadowBlur = isMaxEnergy ? 20 : 8; 
+                ctx.beginPath(); ctx.arc(sx, 12, 4, 0, Math.PI * 2); ctx.fill();
+                ctx.shadowBlur = 0; 
+            }
+
+            ctx.strokeStyle = 'rgba(148, 163, 184, 0.08)';
+            ctx.lineWidth = 1;
+            for (let fy = 40; fy < CANVAS_HEIGHT; fy += 65) {
+                ctx.beginPath(); ctx.moveTo(ZONE_START, fy); ctx.lineTo(ZONE_END, fy); ctx.stroke();
+            }
+
+            const lineGradient = ctx.createLinearGradient(ZONE_START, CANVAS_HEIGHT - 60, ZONE_END, CANVAS_HEIGHT - 60);
+            lineGradient.addColorStop(0, isMaxEnergy ? '#ffffff' : '#f43f5e'); 
+            lineGradient.addColorStop(0.5, isMaxEnergy ? '#ffffff' : '#ec4899'); 
+            lineGradient.addColorStop(1, isMaxEnergy ? '#ffffff' : '#f43f5e');
+            
+            ctx.strokeStyle = lineGradient;
+            ctx.lineWidth = isMaxEnergy ? 10 : 6;
+            ctx.shadowColor = '#fbbf24';
+            ctx.shadowBlur = isMaxEnergy ? 25 : 0;
+            ctx.beginPath(); ctx.moveTo(ZONE_START, CANVAS_HEIGHT - 60); ctx.lineTo(ZONE_END, CANVAS_HEIGHT - 60); ctx.stroke();
+            ctx.shadowBlur = 0;
+            
+            ctx.fillStyle = isMaxEnergy ? 'rgba(251, 191, 36, 0.2)' : 'rgba(244, 63, 94, 0.1)';
+            ctx.fillRect(ZONE_START, CANVAS_HEIGHT - 60, ZONE_WIDTH, 15);
+        }
+
+        // Draw Boss UI Overlays Behind Words
+        if (stats.bossState !== 'none') {
+            const bossTargetCount = difficulty === 'narwhal' ? 3 : difficulty === 'expert' ? 2 : 1;
+            ctx.save();
+            ctx.textAlign = 'center';
+            
+            if (stats.bossState === 'intro') {
+                ctx.globalAlpha = Math.min(1, (gameTimeRef.current - stats.bossTimer) / 500);
+                ctx.font = '900 45px sans-serif';
+                ctx.fillStyle = '#ef4444';
+                ctx.shadowColor = '#dc2626';
+                ctx.shadowBlur = 20;
+                ctx.fillText("YOU'VE ANGERED THE NEGABOR!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60);
+                ctx.font = 'bold 30px sans-serif';
+                ctx.fillStyle = '#f87171';
+                ctx.fillText("ALL LETTERS FALL 50% FASTER!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+                ctx.font = '100px sans-serif';
+                ctx.fillText("🧌", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 100);
+            } else if (stats.bossState === 'active') {
+                ctx.globalAlpha = 0.15;
+                ctx.font = '250px sans-serif';
+                ctx.fillText("🧌", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 60);
+                ctx.globalAlpha = 1.0;
+                ctx.font = '900 24px monospace';
+                ctx.fillStyle = '#ef4444';
+                ctx.shadowColor = '#dc2626';
+                ctx.shadowBlur = 10;
+                ctx.fillText(`DEFEAT NEGABOR: ${stats.bossWordsCleared} / ${bossTargetCount}`, CANVAS_WIDTH / 2, 70);
+            } else if (stats.bossState === 'won') {
+                ctx.font = '900 50px sans-serif';
+                ctx.fillStyle = '#10b981';
+                ctx.shadowColor = '#059669';
+                ctx.shadowBlur = 20;
+                ctx.fillText("NEGABOR DEFEATED!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 20);
+                ctx.fillStyle = '#34d399';
+                ctx.font = 'bold 30px sans-serif';
+                ctx.fillText("MAX ENERGY RESTORED!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 30);
+            } else if (stats.bossState === 'lost') {
+                ctx.font = '900 50px sans-serif';
+                ctx.fillStyle = '#ef4444';
+                ctx.shadowColor = '#dc2626';
+                ctx.shadowBlur = 20;
+                ctx.fillText("NEGABOR LAUGHS!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 20);
+                ctx.font = 'bold 30px sans-serif';
+                ctx.fillStyle = '#fca5a5';
+                ctx.fillText(`ENERGY DRAINED TO ${difficulty === 'narwhal' ? 10 : difficulty === 'expert' ? 25 : 50}%!`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 30);
+                ctx.font = '120px sans-serif';
+                ctx.fillText("🧌", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 140);
+            }
+            ctx.restore();
+        }
+
+        for (let i = particles.length - 1; i >= 0; i--) {
+            let p = particles[i];
+            ctx.save();
+            ctx.globalAlpha = p.opacity;
+            ctx.fillStyle = p.color;
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+            if (!isPaused) {
+                p.x += p.vx; p.y += p.vy; p.opacity *= 0.92; p.size *= 0.96;
+            }
+        }
+
+        words.forEach(w => {
+          ctx.save();
+          const isActive = activeId === w.id;
+          
+          if (currentTheme === 'dj') {
+              if (w.isBossWord) {
+                  ctx.fillStyle = isActive ? '#450a0a' : '#2e0404';
+                  ctx.strokeStyle = isActive ? '#ef4444' : '#991b1b'; 
+                  ctx.shadowColor = '#ef4444';
+                  ctx.shadowBlur = isActive ? 20 : 10;
+              } else if (w.isStarPower) {
+                  ctx.fillStyle = isActive ? '#4a044e' : '#831843';
+                  ctx.strokeStyle = isMaxEnergy ? '#ffffff' : '#f472b6'; 
+                  ctx.shadowColor = isMaxEnergy ? '#06b6d4' : '#f472b6';
+                  ctx.shadowBlur = isMaxEnergy ? 30 : (isActive ? 15 : 6);
+              } else if (w.isNarwhal) {
+                  ctx.fillStyle = isActive ? '#14532d' : '#064e3b';
+                  ctx.strokeStyle = isMaxEnergy ? '#ffffff' : '#4ade80';
+                  ctx.shadowColor = isMaxEnergy ? '#06b6d4' : '#4ade80';
+                  ctx.shadowBlur = isMaxEnergy ? 30 : (isActive ? 15 : 6);
+              } else {
+                  ctx.fillStyle = isActive ? '#082f49' : '#0f172a';
+                  ctx.strokeStyle = isActive ? (isMaxEnergy ? '#ffffff' : '#06b6d4') : '#334155';
+                  if (isActive || isMaxEnergy) { 
+                      ctx.shadowColor = '#06b6d4'; 
+                      ctx.shadowBlur = isMaxEnergy ? 25 : 12; 
+                  }
+              }
+          } else {
+              if (w.isBossWord) {
+                  ctx.fillStyle = isActive ? '#450a0a' : '#2e0404';
+                  ctx.strokeStyle = isActive ? '#ef4444' : '#991b1b'; 
+                  ctx.shadowColor = '#ef4444';
+                  ctx.shadowBlur = isActive ? 20 : 10;
+              } else if (w.isStarPower) {
+                  ctx.fillStyle = isActive ? '#451a03' : '#78350f';
+                  ctx.strokeStyle = isMaxEnergy ? '#ffffff' : '#fbbf24';
+                  ctx.shadowColor = isMaxEnergy ? '#fbbf24' : '#fbbf24';
+                  ctx.shadowBlur = isMaxEnergy ? 30 : (isActive ? 15 : 6);
+              } else if (w.isNarwhal) {
+                  ctx.fillStyle = isActive ? '#082f49' : '#0284c7';
+                  ctx.strokeStyle = isMaxEnergy ? '#ffffff' : '#38bdf8';
+                  ctx.shadowColor = isMaxEnergy ? '#fbbf24' : '#38bdf8';
+                  ctx.shadowBlur = isMaxEnergy ? 30 : (isActive ? 15 : 6);
+              } else {
+                  ctx.fillStyle = isActive ? '#2e1065' : '#1e293b';
+                  ctx.strokeStyle = isActive ? (isMaxEnergy ? '#ffffff' : '#ec4899') : '#475569';
+                  if (isActive || isMaxEnergy) { 
+                      ctx.shadowColor = isMaxEnergy ? '#fbbf24' : '#ec4899'; 
+                      ctx.shadowBlur = isMaxEnergy ? 25 : 12; 
+                  }
+              }
+          }
+          
+          ctx.lineWidth = (isActive || isMaxEnergy) ? 3 : 1.5;
+          
+          let actualWidth = 0;
+          for (let i = 0; i < w.text.length; i++) {
+              const isNextChar = isActive && i === w.typedCount;
+              ctx.font = isNextChar ? '900 36px monospace' : 'bold 24px monospace';
+              actualWidth += ctx.measureText(w.text[i]).width;
+          }
+
+          const padX = 18; 
+          const minRenderX = ZONE_START + actualWidth / 2 + padX;
+          const maxRenderX = ZONE_END - actualWidth / 2 - padX;
+          const drawX = Math.max(minRenderX, Math.min(maxRenderX, w.x));
+          
+          ctx.beginPath();
+          ctx.roundRect(drawX - actualWidth / 2 - padX, w.y - 32, actualWidth + padX * 2, 48, currentTheme === 'dj' ? 24 : 8);
+          ctx.fill(); ctx.stroke();
+          ctx.shadowBlur = 0; 
+
+          let currentX = drawX - actualWidth / 2;
+          for (let i = 0; i < w.text.length; i++) {
+            const char = w.text[i];
+            const isTyped = i < w.typedCount;
+            const isNext = isActive && i === w.typedCount;
+
+            if (currentTheme === 'dj') {
+                if (w.isBossWord) {
+                    ctx.fillStyle = isTyped ? '#fca5a5' : isNext ? '#ffffff' : '#ef4444';
+                    ctx.shadowColor = isTyped ? '#fca5a5' : isNext ? '#ffffff' : '#dc2626';
+                } else if (w.isStarPower) {
+                    ctx.fillStyle = isTyped ? '#f9a8d4' : isNext ? '#ffffff' : (isMaxEnergy ? '#ffffff' : '#fbcfe8');
+                } else if (w.isNarwhal) {
+                    ctx.fillStyle = isTyped ? '#86efac' : isNext ? '#ffffff' : (isMaxEnergy ? '#ffffff' : '#dcfce7');
+                } else {
+                    ctx.fillStyle = isTyped ? '#22d3ee' : isNext ? '#a5f3fc' : (isMaxEnergy ? '#ffffff' : '#94a3b8');
+                }
+                if (!w.isBossWord) ctx.shadowColor = isTyped ? '#06b6d4' : isNext ? '#ffffff' : (isMaxEnergy ? '#06b6d4' : 'transparent');
+            } else {
+                if (w.isBossWord) {
+                    ctx.fillStyle = isTyped ? '#fca5a5' : isNext ? '#ffffff' : '#ef4444';
+                    ctx.shadowColor = isTyped ? '#fca5a5' : isNext ? '#ffffff' : '#dc2626';
+                } else if (w.isStarPower) {
+                    ctx.fillStyle = isTyped ? '#f59e0b' : isNext ? '#ffffff' : (isMaxEnergy ? '#ffffff' : '#fde68a');
+                } else if (w.isNarwhal) {
+                    ctx.fillStyle = isTyped ? '#34d399' : isNext ? '#bae6fd' : (isMaxEnergy ? '#ffffff' : '#f1f5f9');
+                } else {
+                    ctx.fillStyle = isTyped ? '#ec4899' : isNext ? '#a855f7' : (isMaxEnergy ? '#ffffff' : '#94a3b8');
+                }
+                if (!w.isBossWord) ctx.shadowColor = isTyped ? '#10b981' : isNext ? '#ec4899' : (isMaxEnergy ? '#fbbf24' : 'transparent');
+            }
+            
+            ctx.font = isNext ? '900 36px monospace' : 'bold 24px monospace';
+            ctx.shadowBlur = isTyped || isNext || isMaxEnergy ? 10 : 0;
+            
+            ctx.textAlign = 'left';
+            ctx.fillText(char, currentX, w.y + 4); 
+            currentX += ctx.measureText(char).width;
+          }
+          ctx.restore();
+        });
+
+        requestRef.current = requestAnimationFrame(updatePhysics);
+      }, [difficulty, activeSubject, tutorialStep, status, showContinueOffer, isGameOver, showTutorialMenu, targetWordsToWin, hasContinued, isPaused]);
+
+      useEffect(() => {
+        if (status === 'playing' && gameStarted && !showTutorialMenu && !showContinueOffer) {
+            requestRef.current = requestAnimationFrame(updatePhysics);
+        }
+        return () => cancelAnimationFrame(requestRef.current);
+      }, [updatePhysics, status, gameStarted, showTutorialMenu, showContinueOffer]);
+
+      const calculatedAccuracy = useMemo(() => {
+        const total = statsRef.current.totalKeysPressed || 0;
+        const correct = statsRef.current.correctKeysPressed || 0;
+        return total > 0 ? Math.round((correct / total) * 100) : 100;
+      }, [hud.completed, hud.score, status]);
+
+      const logProgressToGoogleSheets = async () => {
+        if (!GOOGLE_SCRIPT_URL || tutorialStep > 0) return;
+
+        setSheetStatus('sending');
+        const payload = {
+          studentName: studentName,
+          difficulty: difficulty.toUpperCase(),
+          subject: activeSubject.toUpperCase(),
+          theme: activeTheme.toUpperCase(),
+          score: hud.score, 
+          maxStreak: statsRef.current.maxStreak, 
+          healthRemaining: hud.health,
+          wordsCleared: hud.completed, 
+          targetWords: targetWordsToWin,
+          accuracy: calculatedAccuracy,
+          timestamp: new Date().toISOString()
+        };
+
+        try {
+          await fetch(GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors', 
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(payload)
+          });
+          setSheetStatus('success');
+        } catch (error) {
+          console.error("Sheets log pipeline broken: ", error);
+          setSheetStatus('error');
+        }
+      };
+
+      const handleStepAdvance = () => {
+        if (tutorialStep === 6) {
+          setTutorialStep(0);
+          setDifficulty('medium'); 
+          AudioEngine.start('medium', activeTheme);
+        } else if (tutorialStep > 0) {
+          setTutorialStep(tutorialStep + 1);
+        } else {
+          initLevelData();
+          return;
+        }
+        initLevelData();
+      };
+
+      const streakMultiplier = useMemo(() => {
+        if (hud.streak >= 30) return "4X";
+        if (hud.streak >= 20) return "3X";
+        if (hud.streak >= 10) return "2X";
+        return "1X";
+      }, [hud.streak]);
+
+      const activeKeyboardLayout = activeSubject === 'punctuation' ? PUNCTUATION_LAYOUT : ALPHABET_LAYOUT;
+
+      // --- UI RENDER BLOCKS ---
+
+      if (!gameStarted) {
+        return (
+          <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 p-4 transition-colors duration-1000 relative overflow-hidden">
+            
+            {/* Rock Concert Stage Effects Wrapper */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+                {/* Strobe Light */}
+                <div className={`absolute inset-0 mix-blend-overlay animate-strobe ${activeTheme === 'dj' ? 'bg-cyan-300' : 'bg-pink-300'}`}></div>
+                
+                {/* Floor Sparks */}
+                {Array.from({ length: 60 }).map((_, i) => {
+                    const drift = (Math.random() - 0.5) * 300;
+                    return (
+                        <div 
+                            key={`spark-${i}`} 
+                            className={`spark ${activeTheme === 'dj' ? 'bg-cyan-300 shadow-[0_0_15px_#06b6d4,0_0_25px_#3b82f6]' : 'bg-yellow-300 shadow-[0_0_15px_#f59e0b,0_0_25px_#ef4444]'}`} 
+                            style={{ 
+                                left: `${Math.random() * 100}%`, 
+                                animationDuration: `${1.5 + Math.random() * 2.5}s`, 
+                                animationDelay: `${Math.random() * 3}s`,
+                                '--drift': `${drift}px`
+                            }} 
+                        />
+                    );
+                })}
+
+                {/* Left Guitar / DJ Deck */}
+                <div className="absolute left-[5%] bottom-[10%] md:left-[10%] md:bottom-[15%] animate-bounce opacity-90" style={{ animationDuration: '0.9s' }}>
+                    <div className={`text-[100px] md:text-[160px] transform -rotate-12 ${activeTheme === 'dj' ? 'drop-shadow-[0_0_25px_rgba(6,182,212,0.8)]' : 'drop-shadow-[0_0_25px_rgba(236,72,153,0.8)]'}`}>
+                        {activeTheme === 'dj' ? '🎧' : '🎸'}
+                    </div>
+                </div>
+
+                {/* Right Guitar / DJ Deck */}
+                <div className="absolute right-[5%] bottom-[10%] md:right-[10%] md:bottom-[15%] animate-bounce opacity-90" style={{ animationDuration: '0.9s', animationDelay: '0.45s' }}>
+                    <div className={`text-[100px] md:text-[160px] transform rotate-12 scale-x-[-1] ${activeTheme === 'dj' ? 'drop-shadow-[0_0_25px_rgba(6,182,212,0.8)]' : 'drop-shadow-[0_0_25px_rgba(236,72,153,0.8)]'}`}>
+                        {activeTheme === 'dj' ? '🎧' : '🎸'}
+                    </div>
+                </div>
+            </div>
+
+            <div className={`w-full max-w-lg bg-slate-900/90 border-2 rounded-2xl shadow-2xl p-8 flex flex-col gap-6 transition-all duration-700 z-10 relative ${activeTheme === 'dj' ? 'border-cyan-500 shadow-[0_0_50px_rgba(6,182,212,0.3)]' : 'border-purple-800 shadow-[0_0_50px_rgba(168,85,247,0.3)]'}`}>
+              <div className="text-center relative">
+                
+                {djFinnUnlocked && (
+                    <button 
+                        onClick={() => setActiveTheme(activeTheme === 'rock' ? 'dj' : 'rock')}
+                        className={`absolute top-0 right-0 px-3 py-1 rounded-full text-[10px] font-black tracking-widest border-2 transition-all ${activeTheme === 'dj' ? 'bg-cyan-500 text-slate-900 border-cyan-400' : 'bg-slate-800 text-pink-400 border-pink-900 hover:bg-slate-700'}`}
+                    >
+                        {activeTheme === 'dj' ? '▶ PLAY ROCK MODE' : '🎧 TOGGLE DJ FINN'}
+                    </button>
+                )}
+
+                <div className={`mx-auto w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg mb-4 animate-bounce ${activeTheme === 'dj' ? 'bg-gradient-to-tr from-cyan-500 to-blue-600 shadow-cyan-500/30' : 'bg-gradient-to-tr from-purple-600 to-pink-500 shadow-purple-500/30'}`}>
+                  <span className="text-white text-3xl font-black">{activeTheme === 'dj' ? '🎧' : '🎸'}</span>
+                </div>
+                <h1 className="text-3xl font-black text-slate-100 tracking-tight uppercase">
+                    {activeTheme === 'dj' ? 'DJ Finn Arena' : 'Typing Arena'}
+                </h1>
+                <p className={`text-sm font-bold mt-1 ${activeTheme === 'dj' ? 'text-cyan-400' : 'text-purple-400'}`}>
+                    {activeTheme === 'dj' ? 'Electronic Speed Mixes' : 'Grades 1-3 Rock Tour & Speed Drills'}
+                </p>
+              </div>
+
+              {lobbyError && (
+                  <div className="bg-red-500/20 border-l-4 border-red-500 p-3 rounded text-sm font-bold text-red-200">
+                      {lobbyError}
+                  </div>
+              )}
+
+              <form onSubmit={handleStartGame} className="flex flex-col gap-5">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-wider">{activeTheme === 'dj' ? 'Your DJ Alias' : 'Your Rocker Name'}</label>
+                  <input type="text" required value={studentName} onChange={(e) => setStudentName(e.target.value)} placeholder="Enter your first and last name..." className={`w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 focus:outline-none focus:ring-2 text-slate-100 font-semibold shadow-sm transition-all ${activeTheme === 'dj' ? 'focus:ring-cyan-500' : 'focus:ring-pink-500'}`} />
+                </div>
+                
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-wider">{activeTheme === 'dj' ? 'Select Mixtape (Subject)' : 'Song List (Curriculum Subject)'}</label>
+                  <select value={activeSubject} onChange={(e) => setActiveSubject(e.target.value)} className={`w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 focus:outline-none focus:ring-2 text-slate-100 font-semibold shadow-sm transition-all ${activeTheme === 'dj' ? 'focus:ring-cyan-500' : 'focus:ring-pink-500'}`}>
+                    {Object.keys(CURRICULUM_WORDS).map(subject => (
+                      <option key={subject} value={subject}>{subject.toUpperCase()}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {activeSubject === 'custom' && (
+                    <div className="flex flex-col gap-1 animate-pulse" style={{ animationIterationCount: 1 }}>
+                        <label className="text-xs font-black text-emerald-400 uppercase tracking-wider">Paste Custom Spelling Words</label>
+                        <textarea 
+                            required
+                            value={customWordsInput} 
+                            onChange={(e) => setCustomWordsInput(e.target.value)} 
+                            placeholder="Type or paste words here (separated by spaces or commas)..." 
+                            className="w-full px-4 py-3 h-24 rounded-xl bg-slate-800 border border-emerald-500/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-emerald-100 font-semibold shadow-sm transition-all resize-none"
+                        />
+                    </div>
+                )}
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-wider">{activeTheme === 'dj' ? 'BPM / Difficulty' : 'Concert Tempo (Difficulty)'}</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { key: 'training', label: activeTheme==='dj'?'🎛️ Basic Mixing':'🤘 Training Gig', desc: 'Home Row Lessons', color: 'border-green-500 text-green-400 bg-green-950/20', disabled: false },
+                      { key: 'medium', label: activeTheme==='dj'?'⚡ Main Stage':'⚡ Normal Concert', desc: 'Default Tempo', color: 'border-blue-500 text-blue-400 bg-blue-950/20', disabled: false },
+                      { key: 'expert', label: activeTheme==='dj'?'🔥 Headline Set':'🔥 Hard Rock Tour', desc: 'High-speed Notes', color: 'border-orange-500 text-orange-400 bg-orange-950/20', disabled: false },
+                      { key: 'narwhal', label: activeTheme==='dj'?'🐋 Bass Drop':'🐋 Narwhal Solos', desc: narwhalUnlocked ? 'Frantic Speed Blitz' : 'LOCKED (Beat Expert)', color: 'border-pink-500 text-pink-400 bg-pink-950/20', disabled: !narwhalUnlocked }
+                    ].map((diff) => (
+                      <button 
+                        key={diff.key} 
+                        type="button" 
+                        disabled={diff.disabled}
+                        onClick={() => setDifficulty(diff.key)} 
+                        className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all relative 
+                          ${diff.disabled ? 'opacity-40 cursor-not-allowed grayscale border-slate-700 bg-slate-900/50 text-slate-500' : 
+                          difficulty === diff.key ? `${diff.color} ring-2 ring-offset-2 font-black scale-105 shadow-md ${activeTheme === 'dj' ? 'ring-cyan-500' : 'ring-pink-500'}` : 'border-slate-800 hover:bg-slate-800 font-semibold text-slate-400'}`}
+                      >
+                        <span className="text-sm">{diff.label}</span>
+                        <span className="text-[10px] opacity-80 mt-0.5">{diff.desc}</span>
+                        {diff.disabled && <span className="absolute inset-0 flex items-center justify-center text-3xl opacity-30">🔒</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <button type="submit" className={`w-full mt-2 py-4 text-white font-extrabold text-lg rounded-xl shadow-lg transition-transform active:scale-95 uppercase ${activeTheme === 'dj' ? 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 shadow-cyan-500/20' : 'bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 shadow-pink-500/20'}`}>
+                    {activeTheme === 'dj' ? 'Start Mixing' : 'Start Performance'}
+                </button>
+              </form>
+            </div>
+          </div>
+        );
+      }
+
+      if (showTutorialMenu) {
+        return (
+          <div className="min-h-screen w-full flex items-center justify-center bg-slate-950 p-4 z-50 transition-colors duration-1000">
+            <div className={`w-full max-w-2xl bg-slate-900 border-2 rounded-2xl shadow-2xl p-8 text-center flex flex-col gap-6 ${activeTheme === 'dj' ? 'border-cyan-800' : 'border-purple-800'}`}>
+                <h1 className={`text-3xl font-black uppercase ${activeTheme === 'dj' ? 'text-cyan-400' : 'text-pink-400'}`}>
+                    {activeTheme === 'dj' ? 'Welcome to the Studio! 🎛️' : 'Welcome to Band Practice! ⚡'}
+                </h1>
+                <div className="text-left text-slate-300 space-y-4 font-medium text-lg leading-relaxed">
+                    <p><strong>🎯 Main Objective:</strong> Type the falling letters perfectly to clear the notes before they strike the red glowing zone.</p>
+                    <p><strong>⏸ Pause Controls:</strong> Need a break? Click the Pause button at the top or hit the <strong>[ESCAPE]</strong> key at any time.</p>
+                    <p><strong>🔥 {activeTheme === 'dj' ? 'Drop The Bass' : 'Star Power'}:</strong> Look out for special glowing words! They drop 1.5x faster but award massive score boosts and multipliers!</p>
+                    <p><strong>⌨️ Home Row Placements:</strong> Rest your left fingers on <span className="font-mono text-pink-400">A, S, D, F</span> and right fingers on <span className="font-mono text-cyan-400">J, K, L</span>. Keep your eyes on the screen!</p>
+                    <p><strong>🔄 Target Swap:</strong> Hit <strong>[TAB]</strong> to quickly switch between falling words and keep your combo alive!</p>
+                    <p><strong>❤️ {activeTheme === 'dj' ? 'Energy Level' : 'Crowd Meter'}:</strong> Miss too many notes and the audience will leave! Keep the meter high.</p>
+                </div>
+                
+                <div className={`w-full flex flex-col gap-2 p-5 rounded-xl border ${activeTheme === 'dj' ? 'bg-cyan-950/20 border-cyan-800/50' : 'bg-pink-950/20 border-pink-800/50'}`}>
+                   <div className="flex justify-between items-center">
+                     <label className={`text-sm font-black uppercase tracking-wider ${activeTheme === 'dj' ? 'text-cyan-400' : 'text-pink-400'}`}>
+                       Training Tempo (Speed)
+                     </label>
+                     <span className="font-mono font-bold text-slate-300">{trainingSpeed}x</span>
+                   </div>
+                   <input 
+                      type="range" 
+                      min="0.5" max="2.0" step="0.1" 
+                      value={trainingSpeed} 
+                      onChange={(e) => setTrainingSpeed(e.target.value)} 
+                   />
+                   <div className="flex justify-between text-xs text-slate-500 font-bold uppercase mt-1">
+                      <span>Beginner Slow</span> 
+                      <span>Hard Rock Fast</span>
+                   </div>
+                </div>
+
+                <button onClick={handleLaunchTraining} className={`mt-2 w-full py-4 text-white font-extrabold text-xl rounded-xl shadow-lg transition-transform active:scale-95 ${activeTheme === 'dj' ? 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500' : 'bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600'}`}>
+                  {activeTheme === 'dj' ? 'Launch Studio Session 1' : 'Launch Practice Gig 1'}
+                </button>
+            </div>
+          </div>
+        );
+      }
+
+      if (showContinueOffer) {
+        return (
+          <div className="min-h-screen w-full flex items-center justify-center bg-slate-950/95 p-4 z-50 absolute top-0 left-0">
+            <div className={`w-full max-w-md bg-slate-900 border rounded-2xl shadow-2xl p-8 text-center flex flex-col gap-6 ${activeTheme === 'dj' ? 'border-cyan-800' : 'border-purple-800'}`}>
+              <div className="text-5xl animate-bounce">{activeTheme === 'dj' ? '💿' : '🎸'}</div>
+              <h1 className="text-3xl font-black text-slate-100">{activeTheme === 'dj' ? 'VIBE CRITICAL!' : 'CROWD CRITICAL!'}</h1>
+              <p className="text-slate-300 font-medium">You reached {hud.score} {activeTheme === 'dj' ? 'vibe points' : 'fans'}, {studentName}!</p>
+              <p className={`text-sm font-bold ${activeTheme === 'dj' ? 'text-cyan-500' : 'text-pink-500'}`}>
+                  You have 1 {activeTheme === 'dj' ? 'Rewind' : 'Encore'} continue left to keep your multiplier.
+              </p>
+              <div className="flex flex-col gap-2">
+                <button onClick={handleContinue} className={`w-full py-4 text-white font-extrabold text-lg rounded-xl transition-all shadow-lg active:scale-95 ${activeTheme === 'dj' ? 'bg-gradient-to-r from-cyan-600 to-blue-600' : 'bg-gradient-to-r from-purple-600 to-pink-500'}`}>
+                  Trigger {activeTheme === 'dj' ? 'Rewind' : 'Encore'} (Continue)
+                </button>
+                <button onClick={handleResetToLobby} className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl">Back to Menu</button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      if (status === 'demote') {
+          return (
+            <div className="min-h-screen w-full flex items-center justify-center bg-slate-950/95 p-4 z-50 absolute top-0 left-0">
+              <div className={`w-full max-w-md bg-slate-900 border rounded-2xl shadow-2xl p-8 text-center flex flex-col gap-6 ${activeTheme === 'dj' ? 'border-cyan-800' : 'border-purple-800'}`}>
+                <div className="text-5xl animate-pulse">📉</div>
+                <h1 className="text-3xl font-black text-slate-100">TEMPO TOO HIGH?</h1>
+                <p className="text-slate-300 font-medium leading-relaxed">
+                  Looks like you're struggling to keep your Energy Meter up! Dropping down a difficulty level can help you master the home-row basics before you speed back up.
+                </p>
+                <div className="flex flex-col gap-2">
+                  <button onClick={handleDemoteDifficulty} className={`w-full py-4 text-white font-extrabold text-lg rounded-xl transition-all shadow-lg active:scale-95 ${activeTheme === 'dj' ? 'bg-gradient-to-r from-cyan-600 to-blue-600' : 'bg-gradient-to-r from-purple-600 to-pink-500'}`}>
+                    Lower Difficulty & Restart
+                  </button>
+                  <button onClick={handleResetToLobby} className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl">Quit to Main Menu</button>
+                </div>
+              </div>
+            </div>
+          );
+      }
+
+      if (isGameOver) {
+        return (
+          <div className="min-h-screen w-full flex items-center justify-center bg-slate-950/95 p-4 z-50 absolute top-0 left-0">
+            <div className="w-full max-w-md bg-slate-900 border border-red-800 rounded-2xl shadow-2xl p-8 text-center flex flex-col gap-6">
+              <div className="text-5xl">💀</div>
+              <h1 className="text-3xl font-black text-red-500">{activeTheme === 'dj' ? 'POWER OUTAGE' : 'BOOED OFF STAGE'}</h1>
+              <p className="text-slate-300 font-medium">Final Score: {hud.score}</p>
+              <button onClick={handleResetToLobby} className={`w-full py-4 text-white font-extrabold text-lg rounded-xl transition-all shadow-md active:scale-95 ${activeTheme === 'dj' ? 'bg-gradient-to-r from-cyan-600 to-blue-600' : 'bg-gradient-to-r from-purple-600 to-pink-500'}`}>
+                  Return to Menu
+              </button>
+            </div>
+          </div>
+        );
+      }
+
+      // Main Game UI
+      return (
+        <div className={`h-screen w-full p-4 flex flex-col items-center justify-start overflow-hidden relative transition-colors duration-1000 ${hud.isShaking ? 'animate-earthquake' : ''} ${activeTheme === 'dj' ? 'bg-[#040816]' : 'bg-slate-950'}`}>
+          
+          {/* Header & Stats */}
+          <div className={`w-full max-w-[1200px] flex flex-col lg:flex-row justify-between items-start lg:items-end gap-4 shrink-0 pb-3 border-b ${activeTheme === 'dj' ? 'border-cyan-900/40' : 'border-purple-900/40'}`}>
+            <div className="flex items-center justify-between w-full lg:w-auto lg:gap-8">
+              <div>
+                <h1 className={`text-2xl font-extrabold text-transparent bg-clip-text tracking-tight flex items-center gap-2 ${activeTheme === 'dj' ? 'bg-gradient-to-r from-cyan-400 to-blue-400' : 'bg-gradient-to-r from-purple-400 to-pink-400'}`}>
+                  {activeTheme === 'dj' ? '🎧 DJ FINN HERO' : '🎸 TYPING ARENA'}
+                </h1>
+                <p className={`text-sm font-medium mt-1 ${activeTheme === 'dj' ? 'text-cyan-300' : 'text-purple-300'}`}>
+                  {tutorialStep > 0 ? TUTORIAL_STEPS[tutorialStep].title : `Track: ${activeSubject.toUpperCase()} (${difficulty.toUpperCase()})`}
+                </p>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={toggleMusic} 
+                  className={`px-3 py-1.5 md:px-4 md:py-2 text-lg font-bold rounded-xl border transition-all flex items-center gap-2 ${musicMuted ? 'bg-slate-800 text-slate-500 border-slate-700' : (activeTheme === 'dj' ? 'bg-cyan-900/40 text-cyan-400 border-cyan-700' : 'bg-purple-900/40 text-purple-400 border-purple-700')}`}
+                  title={musicMuted ? "Unmute Music" : "Mute Music"}
+                >
+                  {musicMuted ? '🔇' : '🎵'}
+                </button>
+                <button 
+                  onClick={() => setIsPaused(!isPaused)} 
+                  className={`px-3 py-1.5 md:px-4 md:py-2 text-xs md:text-sm font-bold rounded-xl border transition-all flex items-center gap-2 ${isPaused ? 'bg-amber-600 hover:bg-amber-500 text-white border-amber-500' : 'bg-slate-900 hover:bg-slate-800 text-amber-400 hover:text-amber-300 border-amber-900/60'}`}
+                >
+                  {isPaused ? '▶ RESUME' : '⏸ PAUSE'}
+                </button>
+                <button 
+                  onClick={handleResetToLobby} 
+                  className={`px-3 py-1.5 md:px-4 md:py-2 bg-slate-900 hover:bg-slate-800 text-xs md:text-sm font-bold rounded-xl border transition-all flex items-center gap-2 ${activeTheme === 'dj' ? 'text-cyan-400 hover:text-cyan-300 border-cyan-900/60' : 'text-pink-400 hover:text-pink-300 border-pink-900/60'}`}
+                >
+                  Quit
+                </button>
+              </div>
+            </div>
+
+            <div className={`flex items-center gap-4 bg-slate-900 px-5 py-2 rounded-xl border ${activeTheme === 'dj' ? 'border-cyan-900/50' : 'border-purple-900/50'}`}>
+                <div className="text-center">
+                    <p className="text-xs text-slate-400 font-black uppercase">{activeTheme === 'dj' ? 'Vibe' : 'Fans'}</p>
+                    <p className={`text-lg font-black ${activeTheme === 'dj' ? 'text-blue-400' : 'text-cyan-400'}`}>{hud.score}</p>
+                </div>
+                <div className="text-center border-l border-slate-800 pl-4">
+                    <p className="text-xs text-slate-400 font-black uppercase">{activeTheme === 'dj' ? 'Flow' : 'Multiplier'}</p>
+                    <p className="text-lg font-black text-orange-400 animate-pulse">{streakMultiplier}</p>
+                </div>
+                <div className="text-center border-l border-slate-800 pl-4">
+                    <p className="text-xs text-slate-400 font-black uppercase">{activeTheme === 'dj' ? 'Lives' : 'Crowd Health'}</p>
+                    <div className="flex gap-1 mt-1 text-red-500 text-base">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                            <span key={i} className={i < hud.health ? 'opacity-100' : 'opacity-20 grayscale'}>❤️</span>
+                        ))}
+                    </div>
+                </div>
+                <div className="text-center border-l border-slate-800 pl-4">
+                    <p className="text-xs text-slate-400 font-black uppercase">{activeTheme === 'dj' ? 'Tracks' : 'Cleared'}</p>
+                    <p className={`text-lg font-black ${activeTheme === 'dj' ? 'text-cyan-400' : 'text-pink-400'}`}>{hud.completed}/{targetWordsToWin}</p>
+                </div>
+            </div>
+          </div>
+
+          {/* Core Layout Wrapper: Canvas Left, Keyboard Right */}
+          <div className="flex flex-col lg:flex-row w-full max-w-[1200px] justify-center items-center lg:items-stretch gap-6 mt-4 flex-1">
+              
+              {/* Central Game Area */}
+              <div className="flex flex-col flex-1 w-full max-w-[800px] relative">
+                 
+                 {/* Top Dynamic Energy Meter */}
+                 <div className={`w-full mb-3 h-5 bg-slate-900 border-2 rounded-full overflow-hidden relative shadow-inner ${activeTheme === 'dj' ? 'border-cyan-900' : 'border-purple-900'}`}>
+                    <div className={`h-full transition-all duration-200 ease-out ${hud.energy >= 100 ? (activeTheme === 'dj' ? 'bg-gradient-to-r from-cyan-300 to-blue-400 animate-pulse shadow-[0_0_15px_rgba(34,211,238,0.8)]' : 'bg-gradient-to-r from-yellow-300 to-yellow-500 animate-pulse shadow-[0_0_15px_rgba(253,224,71,0.8)]') : (activeTheme === 'dj' ? 'bg-gradient-to-r from-blue-700 to-cyan-500' : 'bg-gradient-to-r from-purple-700 to-pink-500')}`} style={{ width: `${hud.energy}%` }}></div>
+                    <div className="absolute inset-0 flex items-center justify-center text-[10px] font-black tracking-widest text-white mix-blend-overlay">
+                        {hud.energy >= 100 ? 'MAX ENERGY - GLOW ACTIVE!' : `${activeTheme === 'dj' ? 'ENERGY METER' : 'STAR POWER METER'}`}
+                    </div>
+                 </div>
+
+                 <canvas 
+                    ref={canvasRef} 
+                    className={`w-full h-auto aspect-[8/5] rounded-xl shadow-2xl border-4 ${activeTheme === 'dj' ? 'border-cyan-900 bg-[#080c1f]' : 'border-slate-800 bg-slate-950'}`}
+                    style={{ imageRendering: 'pixelated' }}
+                 />
+
+                 {/* Narwhal Swarm Completion Overlay */}
+                 {hud.narwhalTrigger > 0 && (
+                    <div key={hud.narwhalTrigger} className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center overflow-hidden">
+                        <div className="animate-swim flex items-center gap-6 drop-shadow-2xl opacity-90">
+                            <span className="text-[100px] -mt-12 transform -scale-x-100">🐋</span>
+                            <span className="text-[160px] z-10 transform -scale-x-100">🐋</span>
+                            <span className="text-[120px] mt-16 transform -scale-x-100">🐋</span>
+                        </div>
+                    </div>
+                 )}
+
+                 {/* Pause Screen Overlay */}
+                 {isPaused && status === 'playing' && (
+                    <div className="absolute inset-0 top-[2rem] bg-slate-950/70 rounded-xl flex items-center justify-center p-8 text-center backdrop-blur-sm z-10">
+                        <div className="text-6xl font-black text-amber-400 tracking-widest animate-pulse">PAUSED</div>
+                    </div>
+                 )}
+                 
+                 {/* Win Screen Overlay */}
+                 {status === 'won' && (
+                    <div className="absolute inset-0 top-[2rem] bg-slate-950/95 rounded-xl flex items-center justify-center p-8 text-center backdrop-blur-sm z-20">
+                        <div className={`flex flex-col items-center gap-6 bg-slate-900 border-2 p-8 rounded-2xl shadow-2xl w-full max-w-[500px] ${activeTheme === 'dj' ? 'border-cyan-800' : 'border-purple-800'}`}>
+                            <div className="text-5xl animate-bounce">🏆</div>
+                            <div>
+                              <h2 className={`text-3xl font-black ${activeTheme === 'dj' ? 'text-cyan-400' : 'text-pink-400'}`}>
+                                  {activeTheme === 'dj' ? 'MIXTAPE COMPLETE!' : 'SET LIST COMPLETE!'}
+                              </h2>
+                              <p className="text-slate-300 font-medium mt-2 max-w-md leading-relaxed">{message}</p>
+                              <p className="text-emerald-400 font-black text-xl mt-1">Accuracy: {calculatedAccuracy}%</p>
+                            </div>
+                            
+                            <div className="flex gap-4 mt-2 flex-wrap justify-center">
+                                {tutorialStep === 0 && GOOGLE_SCRIPT_URL && sheetStatus === 'idle' && (
+                                    <button onClick={logProgressToGoogleSheets} className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg transition-all active:scale-95">
+                                        Publish Score
+                                    </button>
+                                )}
+                                
+                                {sheetStatus === 'sending' && (
+                                    <button disabled className="px-6 py-3 bg-slate-600 text-white font-bold rounded-xl flex items-center gap-2">
+                                      <span className="animate-spin">⏳</span> Uploading...
+                                    </button>
+                                )}
+                                
+                                {sheetStatus === 'success' && (
+                                    <button disabled className="px-6 py-3 bg-green-600 text-white font-bold rounded-xl">
+                                      Score Saved! ✔️
+                                    </button>
+                                )}
+
+                                <button onClick={handleStepAdvance} className={`px-8 py-3 text-white font-bold rounded-xl shadow-lg transition-all active:scale-95 ${activeTheme === 'dj' ? 'bg-gradient-to-r from-cyan-600 to-blue-600' : 'bg-gradient-to-r from-purple-600 to-pink-500'}`}>
+                                    {tutorialStep > 0 ? "Next Lesson" : "Play Next Show"}
+                                </button>
+                                
+                                <button onClick={handleResetToLobby} className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl transition-all active:scale-95">
+                                    Menu
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                 )}
+              </div>
+
+              {/* Virtual Fretboard Keyboard (Right side on Desktop, Bottom on Mobile) */}
+              <div className={`w-full lg:w-[380px] shrink-0 border rounded-2xl p-4 md:p-6 mb-2 lg:mb-0 flex flex-col gap-3 items-center justify-center ${activeTheme === 'dj' ? 'bg-slate-900/65 border-cyan-900/40' : 'bg-slate-900/65 border-purple-900/40'}`}>
+                 <div className={`text-center text-sm font-black uppercase tracking-widest mb-2 ${activeTheme === 'dj' ? 'text-cyan-400' : 'text-pink-400'}`}>
+                   Deck Controls
+                 </div>
+                 
+                 {activeKeyboardLayout.map((row, rowIdx) => (
+                   <div key={rowIdx} className="flex gap-1 md:gap-[4px] justify-center w-full">
+                     {activeSubject !== 'punctuation' && rowIdx === 1 && <div className="w-[4%] md:w-[6%]" />} 
+                     {activeSubject !== 'punctuation' && rowIdx === 2 && <div className="w-[12%] md:w-[15%]" />} 
+                     
+                     {row.map(key => {
+                       const isExpected = hud.nextExpectedChar === key && !isPaused;
+                       
+                       let activeClasses = '';
+                       if (isExpected) {
+                           if (activeTheme === 'dj') {
+                               activeClasses = 'bg-gradient-to-b from-cyan-500 to-blue-600 text-white shadow-[0_0_15px_rgba(6,182,212,0.8)] scale-110 z-10 border-2 border-cyan-300';
+                           } else {
+                               activeClasses = 'bg-gradient-to-b from-purple-500 to-pink-600 text-white shadow-[0_0_15px_rgba(236,72,153,0.8)] scale-110 z-10 border-2 border-pink-400';
+                           }
+                       } else {
+                           activeClasses = 'bg-slate-800 text-slate-400 border border-slate-700 shadow-sm';
+                       }
+
+                       return (
+                         <div 
+                           key={key} 
+                           className={`flex items-center justify-center w-8 h-10 md:w-[38px] md:h-12 lg:w-9 lg:h-10 rounded-lg text-sm md:text-lg lg:text-base font-extrabold uppercase transition-all duration-150 ${activeClasses}`}
+                         >
+                           {key}
+                         </div>
+                       );
+                     })}
+                   </div>
+                 ))}
+                 <div className={`mt-4 text-center text-xs font-bold uppercase tracking-widest leading-relaxed ${activeTheme === 'dj' ? 'text-cyan-400/80' : 'text-purple-400/80'}`}>
+                   Look at the highway! <br/>Find the glowing key.
+                 </div>
+              </div>
+
+          </div>
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
