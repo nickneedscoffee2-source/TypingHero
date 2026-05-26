@@ -798,7 +798,7 @@
                                 if (stats.energy === 0 && prevEnergy > 0) {
                                     stats.health -= 1;
                                     stats.score = Math.max(0, stats.score - 50);
-                                    for(let i=0; i<15; i++) particles.push({ x: target.x, y: target.y, vx: (Math.random()-0.5)*20, vy: (Math.random()-0.5)*20, size: Math.random()*6+3, color: '#ef4444', opacity: 1 });
+                                    for(let i=0; i<15; i++) particles.push({ x: CANVAS_WIDTH/2, y: CANVAS_HEIGHT/2, vx: (Math.random()-0.5)*20, vy: (Math.random()-0.5)*20, size: Math.random()*6+3, color: '#ef4444', opacity: 1 });
                                 }
                             }
                         } else {
@@ -1365,7 +1365,7 @@
 
       if (showTutorialMenu) {
         return (
-          <div className="min-h-screen w-full flex items-center justify-center bg-slate-950 p-4 z-50 transition-colors duration-1000">
+          <div className="min-h-screen w-full flex items-center justify-center bg-slate-955 p-4 z-50 transition-colors duration-1000">
             <div className={`w-full max-w-2xl bg-slate-900 border-2 rounded-2xl shadow-2xl p-8 text-center flex flex-col gap-6 ${activeTheme === 'dj' ? 'border-cyan-800' : 'border-purple-800'}`}>
                 <h1 className={`text-3xl font-black uppercase ${activeTheme === 'dj' ? 'text-cyan-400' : 'text-pink-400'}`}>
                     {activeTheme === 'dj' ? 'Welcome to the Studio! 🎛️' : 'Welcome to Band Practice! ⚡'}
@@ -1429,7 +1429,7 @@
 
       if (status === 'demote') {
           return (
-            <div className="min-h-screen w-full flex items-center justify-center bg-slate-950/95 p-4 z-50 absolute top-0 left-0">
+            <div className="min-h-screen w-full flex items-center justify-center bg-slate-955/95 p-4 z-50 absolute top-0 left-0">
               <div className={`w-full max-w-md bg-slate-900 border rounded-2xl shadow-2xl p-8 text-center flex flex-col gap-6 ${activeTheme === 'dj' ? 'border-cyan-800' : 'border-purple-800'}`}>
                 <div className="text-5xl animate-pulse">📉</div>
                 <h1 className="text-3xl font-black text-slate-100">TEMPO TOO HIGH?</h1>
