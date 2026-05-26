@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Typing Arena: Rock Tour Edition</title>
+  <title>Typing Hero: Rock Tour Edition</title>
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -883,7 +883,7 @@
                 else if (tutorialStep === 5) setMessage("Incredible double-handed rhythm! Ready to shred the actual curriculum words!");
                 else if (tutorialStep === 6) setMessage("You have conquered basic training! Click below to enter the Arena and start your tour.");
                 else {
-                    if (difficulty === 'narwhal') setMessage(`Epic Solos Complete! 🎧 DJ FINN MODE UNLOCKED! Enable it in the Main Menu!`);
+                    if (difficulty === 'narwhal') setMessage(`Epic Solos Complete! 🎧 DJ FINN: TYPING HERO UNLOCKED! Enable it in the Main Menu!`);
                     else if (difficulty === 'expert') setMessage(`Phenomenal concert! You cleared all ${targetWordsToWin} words! 🐋 NARWHAL MODE UNLOCKED!`);
                     else setMessage(`Phenomenal concert! You cleared all ${targetWordsToWin} words!`);
                 }
@@ -1288,7 +1288,7 @@
                   <span className="text-white text-3xl font-black">{activeTheme === 'dj' ? '🎧' : '🎸'}</span>
                 </div>
                 <h1 className="text-3xl font-black text-slate-100 tracking-tight uppercase">
-                    {activeTheme === 'dj' ? 'DJ Finn Arena' : 'Typing Arena'}
+                    {activeTheme === 'dj' ? 'DJ Finn Hero' : 'Typing Hero'}
                 </h1>
                 <p className={`text-sm font-bold mt-1 ${activeTheme === 'dj' ? 'text-cyan-400' : 'text-purple-400'}`}>
                     {activeTheme === 'dj' ? 'Electronic Speed Mixes' : 'Grades 1-3 Rock Tour & Speed Drills'}
@@ -1471,7 +1471,7 @@
             <div className="flex items-center justify-between w-full lg:w-auto lg:gap-8">
               <div>
                 <h1 className={`text-2xl font-extrabold text-transparent bg-clip-text tracking-tight flex items-center gap-2 ${activeTheme === 'dj' ? 'bg-gradient-to-r from-cyan-400 to-blue-400' : 'bg-gradient-to-r from-purple-400 to-pink-400'}`}>
-                  {activeTheme === 'dj' ? '🎧 DJ FINN HERO' : '🎸 TYPING ARENA'}
+                  {activeTheme === 'dj' ? '🎧 DJ FINN: TYPING HERO' : '🎸 TYPING HERO'}
                 </h1>
                 <p className={`text-sm font-medium mt-1 ${activeTheme === 'dj' ? 'text-cyan-300' : 'text-purple-300'}`}>
                   {tutorialStep > 0 ? TUTORIAL_STEPS[tutorialStep].title : `Track: ${activeSubject.toUpperCase()} (${difficulty.toUpperCase()})`}
@@ -1526,86 +1526,89 @@
           </div>
 
           {/* Core Layout Wrapper: Canvas Left, Keyboard Right */}
-          <div className="flex flex-col lg:flex-row w-full max-w-[1200px] justify-center items-center lg:items-stretch gap-6 mt-4 flex-1">
+          <div className="flex flex-col lg:flex-row w-full max-w-[1200px] justify-center items-center lg:items-stretch gap-6 mt-4 flex-1 overflow-hidden">
               
               {/* Central Game Area */}
-              <div className="flex flex-col flex-1 w-full max-w-[800px] relative">
+              <div className="flex flex-col flex-1 w-full max-w-[800px] h-full max-h-[50vh] md:max-h-[58vh] relative">
                  
                  {/* Top Dynamic Energy Meter */}
-                 <div className={`w-full mb-3 h-5 bg-slate-900 border-2 rounded-full overflow-hidden relative shadow-inner ${activeTheme === 'dj' ? 'border-cyan-900' : 'border-purple-900'}`}>
+                 <div className={`w-full mb-3 h-5 bg-slate-900 border-2 rounded-full overflow-hidden relative shrink-0 shadow-inner ${activeTheme === 'dj' ? 'border-cyan-900' : 'border-purple-900'}`}>
                     <div className={`h-full transition-all duration-200 ease-out ${hud.energy >= 100 ? (activeTheme === 'dj' ? 'bg-gradient-to-r from-cyan-300 to-blue-400 animate-pulse shadow-[0_0_15px_rgba(34,211,238,0.8)]' : 'bg-gradient-to-r from-yellow-300 to-yellow-500 animate-pulse shadow-[0_0_15px_rgba(253,224,71,0.8)]') : (activeTheme === 'dj' ? 'bg-gradient-to-r from-blue-700 to-cyan-500' : 'bg-gradient-to-r from-purple-700 to-pink-500')}`} style={{ width: `${hud.energy}%` }}></div>
                     <div className="absolute inset-0 flex items-center justify-center text-[10px] font-black tracking-widest text-white mix-blend-overlay">
                         {hud.energy >= 100 ? 'MAX ENERGY - GLOW ACTIVE!' : `${activeTheme === 'dj' ? 'ENERGY METER' : 'STAR POWER METER'}`}
                     </div>
                  </div>
 
-                 <canvas 
-                    ref={canvasRef} 
-                    className={`w-full h-auto aspect-[8/5] rounded-xl shadow-2xl border-4 ${activeTheme === 'dj' ? 'border-cyan-900 bg-[#080c1f]' : 'border-slate-800 bg-slate-950'}`}
-                    style={{ imageRendering: 'pixelated' }}
-                 />
+                 {/* Canvas Holder wrapper to lock the size cleanly */}
+                 <div className="flex-1 w-full h-full relative overflow-hidden flex items-center justify-center">
+                   <canvas 
+                      ref={canvasRef} 
+                      className={`w-full h-full max-w-[800px] aspect-[8/5] rounded-xl shadow-2xl border-4 ${activeTheme === 'dj' ? 'border-cyan-900 bg-[#080c1f]' : 'border-slate-800 bg-slate-950'}`}
+                      style={{ imageRendering: 'pixelated' }}
+                   />
 
-                 {/* Narwhal Swarm Completion Overlay */}
-                 {hud.narwhalTrigger > 0 && (
-                    <div key={hud.narwhalTrigger} className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center overflow-hidden">
-                        <div className="animate-swim flex items-center gap-6 drop-shadow-2xl opacity-90">
-                            <span className="text-[100px] -mt-12 transform -scale-x-100">🐋</span>
-                            <span className="text-[160px] z-10 transform -scale-x-100">🐋</span>
-                            <span className="text-[120px] mt-16 transform -scale-x-100">🐋</span>
-                        </div>
-                    </div>
-                 )}
+                   {/* Narwhal Swarm Completion Overlay */}
+                   {hud.narwhalTrigger > 0 && (
+                      <div key={hud.narwhalTrigger} className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center overflow-hidden">
+                          <div className="animate-swim flex items-center gap-6 drop-shadow-2xl opacity-90">
+                              <span className="text-[100px] -mt-12 transform -scale-x-100">🐋</span>
+                              <span className="text-[160px] z-10 transform -scale-x-100">🐋</span>
+                              <span className="text-[120px] mt-16 transform -scale-x-100">🐋</span>
+                          </div>
+                      </div>
+                   )}
 
-                 {/* Pause Screen Overlay */}
-                 {isPaused && status === 'playing' && (
-                    <div className="absolute inset-0 top-[2rem] bg-slate-950/70 rounded-xl flex items-center justify-center p-8 text-center backdrop-blur-sm z-10">
-                        <div className="text-6xl font-black text-amber-400 tracking-widest animate-pulse">PAUSED</div>
-                    </div>
-                 )}
-                 
-                 {/* Win Screen Overlay */}
-                 {status === 'won' && (
-                    <div className="absolute inset-0 top-[2rem] bg-slate-950/95 rounded-xl flex items-center justify-center p-8 text-center backdrop-blur-sm z-20">
-                        <div className={`flex flex-col items-center gap-6 bg-slate-900 border-2 p-8 rounded-2xl shadow-2xl w-full max-w-[500px] ${activeTheme === 'dj' ? 'border-cyan-800' : 'border-purple-800'}`}>
-                            <div className="text-5xl animate-bounce">🏆</div>
-                            <div>
-                              <h2 className={`text-3xl font-black ${activeTheme === 'dj' ? 'text-cyan-400' : 'text-pink-400'}`}>
-                                  {activeTheme === 'dj' ? 'MIXTAPE COMPLETE!' : 'SET LIST COMPLETE!'}
-                              </h2>
-                              <p className="text-slate-300 font-medium mt-2 max-w-md leading-relaxed">{message}</p>
-                              <p className="text-emerald-400 font-black text-xl mt-1">Accuracy: {calculatedAccuracy}%</p>
-                            </div>
-                            
-                            <div className="flex gap-4 mt-2 flex-wrap justify-center">
-                                {tutorialStep === 0 && GOOGLE_SCRIPT_URL && sheetStatus === 'idle' && (
-                                    <button onClick={logProgressToGoogleSheets} className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg transition-all active:scale-95">
-                                        Publish Score
-                                    </button>
-                                )}
-                                
-                                {sheetStatus === 'sending' && (
-                                    <button disabled className="px-6 py-3 bg-slate-600 text-white font-bold rounded-xl flex items-center gap-2">
-                                      <span className="animate-spin">⏳</span> Uploading...
-                                    </button>
-                                )}
-                                
-                                {sheetStatus === 'success' && (
-                                    <button disabled className="px-6 py-3 bg-green-600 text-white font-bold rounded-xl">
-                                      Score Saved! ✔️
-                                    </button>
-                                )}
+                   {/* Pause Screen Overlay */}
+                   {isPaused && status === 'playing' && (
+                      <div className="absolute inset-0 bg-slate-950/70 rounded-xl flex items-center justify-center p-8 text-center backdrop-blur-sm z-10">
+                          <div className="text-6xl font-black text-amber-400 tracking-widest animate-pulse">PAUSED</div>
+                      </div>
+                   )}
+                   
+                   {/* Win Screen Overlay */}
+                   {status === 'won' && (
+                      <div className="absolute inset-0 bg-slate-950/95 rounded-xl flex items-center justify-center p-8 text-center backdrop-blur-sm z-20">
+                          <div className={`flex flex-col items-center gap-6 bg-slate-900 border-2 p-8 rounded-2xl shadow-2xl w-full max-w-[500px] ${activeTheme === 'dj' ? 'border-cyan-800' : 'border-purple-800'}`}>
+                              <div className="text-5xl animate-bounce">🏆</div>
+                              <div>
+                                <h2 className={`text-3xl font-black ${activeTheme === 'dj' ? 'text-cyan-400' : 'text-pink-400'}`}>
+                                    {activeTheme === 'dj' ? 'MIXTAPE COMPLETE!' : 'SET LIST COMPLETE!'}
+                                </h2>
+                                <p className="text-slate-300 font-medium mt-2 max-w-md leading-relaxed">{message}</p>
+                                <p className="text-emerald-400 font-black text-xl mt-1">Accuracy: {calculatedAccuracy}%</p>
+                              </div>
+                              
+                              <div className="flex gap-4 mt-2 flex-wrap justify-center">
+                                  {tutorialStep === 0 && GOOGLE_SCRIPT_URL && sheetStatus === 'idle' && (
+                                      <button onClick={logProgressToGoogleSheets} className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg transition-all active:scale-95">
+                                          Publish Score
+                                      </button>
+                                  )}
+                                  
+                                  {sheetStatus === 'sending' && (
+                                      <button disabled className="px-6 py-3 bg-slate-600 text-white font-bold rounded-xl flex items-center gap-2">
+                                        <span className="animate-spin">⏳</span> Uploading...
+                                      </button>
+                                  )}
+                                  
+                                  {sheetStatus === 'success' && (
+                                      <button disabled className="px-6 py-3 bg-green-600 text-white font-bold rounded-xl">
+                                        Score Saved! ✔️
+                                      </button>
+                                  )}
 
-                                <button onClick={handleStepAdvance} className={`px-8 py-3 text-white font-bold rounded-xl shadow-lg transition-all active:scale-95 ${activeTheme === 'dj' ? 'bg-gradient-to-r from-cyan-600 to-blue-600' : 'bg-gradient-to-r from-purple-600 to-pink-500'}`}>
-                                    {tutorialStep > 0 ? "Next Lesson" : "Play Next Show"}
-                                </button>
-                                
-                                <button onClick={handleResetToLobby} className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl transition-all active:scale-95">
-                                    Menu
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                 )}
+                                  <button onClick={handleStepAdvance} className={`px-8 py-3 text-white font-bold rounded-xl shadow-lg transition-all active:scale-95 ${activeTheme === 'dj' ? 'bg-gradient-to-r from-cyan-600 to-blue-600' : 'bg-gradient-to-r from-purple-600 to-pink-500'}`}>
+                                      {tutorialStep > 0 ? "Next Lesson" : "Play Next Show"}
+                                  </button>
+                                  
+                                  <button onClick={handleResetToLobby} className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl transition-all active:scale-95">
+                                      Menu
+                                  </button>
+                              </div>
+                          </div>
+                      </div>
+                   )}
+                 </div>
               </div>
 
               {/* Virtual Fretboard Keyboard (Right side on Desktop, Bottom on Mobile) */}
