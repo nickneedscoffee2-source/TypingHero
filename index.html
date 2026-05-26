@@ -491,7 +491,7 @@
       
       const wordsRef = useRef([]);
       const activeWordIdRef = useRef(null);
-      const statsRef = useRef({ score: 0, streak: 0, maxStreak: 0, health: 5, completed: 0, energy: 50, zeroEnergyWords: 0, narwhalTrigger: 0, bossState: 'none', bossTimer: 0, bossWordsCleared: 0, bossWordsSpawned: 0, bossTriggered: false, globalSpeedBoost: 1.0, correctKeysPressed: 0, totalKeysPressed: 0 });
+      const statsRef = useRef({ score: 0, streak: 0, maxStreak: 0, health: 5, completed: 0, energy: 50, zeroEnergyWords: 0, narwhalTrigger: 0, bossState: 'none', bossTimer: 0, bossWordsCleared: 0, bossWordsSpawned: 0, bossTriggered: false, globalSpeedBoost: 1.0, correctKeysPressed: 0, totalKeysPressed: 0, healthWordsSpawned: 0 });
       const particlesRef = useRef([]);
       const keysQueueRef = useRef([]);
 
@@ -508,7 +508,7 @@
         if (difficulty === 'training') return parseFloat(trainingSpeed);
         if (difficulty === 'medium') return 0.9;
         if (difficulty === 'expert') return 1.6;
-        if (difficulty === 'narwhal') return 2.6;
+        if (difficulty === 'narwhal') return 2.34; // Reduced by 10% from 2.6
         return 1.0;
       }, [difficulty, trainingSpeed]);
 
@@ -609,7 +609,7 @@
         activeWordIdRef.current = null;
         particlesRef.current = [];
         keysQueueRef.current = [];
-        statsRef.current = { score: 0, streak: 0, maxStreak: 0, health: 5, completed: 0, energy: 50, zeroEnergyWords: 0, narwhalTrigger: 0, bossState: 'none', bossTimer: 0, bossWordsCleared: 0, bossWordsSpawned: 0, bossTriggered: false, globalSpeedBoost: 1.0, correctKeysPressed: 0, totalKeysPressed: 0 };
+        statsRef.current = { score: 0, streak: 0, maxStreak: 0, health: 5, completed: 0, energy: 50, zeroEnergyWords: 0, narwhalTrigger: 0, bossState: 'none', bossTimer: 0, bossWordsCleared: 0, bossWordsSpawned: 0, bossTriggered: false, globalSpeedBoost: 1.0, correctKeysPressed: 0, totalKeysPressed: 0, healthWordsSpawned: 0 };
         
         lastTimeRef.current = performance.now();
         gameTimeRef.current = 0;
@@ -732,16 +732,23 @@
                         let randomWord = wordList[Math.floor(Math.random() * wordList.length)];
                         let isNarwhal = false;
                         let isStarPower = false;
+                        let isHealthWord = false;
                         let wordSpeed = getSpeedMultiplier() * (1 + Math.random() * 0.4);
 
+                        // Health Restore Word Drop (Narwhal Mode Only, low health, limit 3)
+                        if (difficulty === 'narwhal' && stats.health <= 2 && stats.healthWordsSpawned < 3 && Math.random() < 0.25) {
+                            isHealthWord = true;
+                            stats.healthWordsSpawned++;
+                            wordSpeed *= 1.1; // Slightly faster but manageable
+                        }
                         // Star Power Solo Note Spawn (15% chance, Neon Gold, drops 1.5x faster)
-                        if (tutorialStep === 0 && Math.random() < 0.18) {
+                        else if (tutorialStep === 0 && Math.random() < 0.18) {
                             isStarPower = true;
                             wordSpeed *= 1.5;
                         }
 
                         // Narwhal Ultimate Bonus Drop
-                        if (tutorialStep === 0 && !isStarPower && Math.random() < 0.08) {
+                        else if (tutorialStep === 0 && !isStarPower && Math.random() < 0.08) {
                             randomWord = "narwhal";
                             isNarwhal = true;
                             wordSpeed *= 2.0; 
@@ -767,7 +774,8 @@
                             speed: wordSpeed,
                             isNarwhal: isNarwhal,
                             isStarPower: isStarPower,
-                            isBossWord: false
+                            isBossWord: false,
+                            isHealthWord: isHealthWord
                         });
                     }
                     lastSpawnTimeRef.current = gameTimeRef.current;
@@ -812,7 +820,11 @@
                             }
 
                             if (target.typedCount === target.text.length) {
-                                if (target.isNarwhal) { 
+                                if (target.isHealthWord) {
+                                    stats.score += 200;
+                                    stats.health = Math.min(5, stats.health + 1);
+                                }
+                                else if (target.isNarwhal) { 
                                     stats.score += 500; 
                                     stats.health = Math.min(5, stats.health + 1); 
                                     stats.narwhalTrigger = gameTimeRef.current; 
@@ -836,7 +848,8 @@
 
                                 words = words.filter(w => w.id !== target.id);
                                 activeId = null;
-                                for(let i=0; i<20; i++) particles.push({ x: target.x, y: target.y, vx: (Math.random()-0.5)*14, vy: (Math.random()-0.5)*14, size: Math.random()*7+2, color: '#f59e0b', opacity: 1 });
+                                const burstColor = target.isHealthWord ? '#10b981' : '#f59e0b';
+                                for(let i=0; i<20; i++) particles.push({ x: target.x, y: target.y, vx: (Math.random()-0.5)*14, vy: (Math.random()-0.5)*14, size: Math.random()*7+2, color: burstColor, opacity: 1 });
                             }
                         } else {
                             // MISTAKE LOGIC
@@ -872,7 +885,11 @@
                                 }
 
                                 if (target.typedCount === target.text.length) {
-                                    if (target.isNarwhal) { 
+                                    if (target.isHealthWord) {
+                                        stats.score += 200;
+                                        stats.health = Math.min(5, stats.health + 1);
+                                    }
+                                    else if (target.isNarwhal) { 
                                         stats.score += 500; 
                                         stats.health = Math.min(5, stats.health + 1); 
                                         stats.narwhalTrigger = gameTimeRef.current;
@@ -896,7 +913,8 @@
 
                                     words = words.filter(w => w.id !== target.id);
                                     activeId = null;
-                                    for(let i=0; i<20; i++) particles.push({ x: target.x, y: target.y, vx: (Math.random()-0.5)*14, vy: (Math.random()-0.5)*14, size: Math.random()*8+2, color: '#ec4899', opacity: 1 });
+                                    const burstColor = target.isHealthWord ? '#10b981' : '#ec4899';
+                                    for(let i=0; i<20; i++) particles.push({ x: target.x, y: target.y, vx: (Math.random()-0.5)*14, vy: (Math.random()-0.5)*14, size: Math.random()*8+2, color: burstColor, opacity: 1 });
                                 }
                             } else {
                                 // MISTAKE LOGIC
@@ -906,7 +924,7 @@
                                 if (stats.energy === 0 && prevEnergy > 0) {
                                     stats.health -= 1;
                                     stats.score = Math.max(0, stats.score - 50);
-                                    for(let i=0; i<15; i++) particles.push({ x: CANVAS_WIDTH/2, y: CANVAS_HEIGHT/2, vx: (Math.random()-0.5)*20, vy: (Math.random()-0.5)*20, size: Math.random()*6+3, color: '#ef4444', opacity: 1 });
+                                    for(let i=0; i<15; i++) particles.push({ x: target.x, y: target.y, vx: (Math.random()-0.5)*20, vy: (Math.random()-0.5)*20, size: Math.random()*6+3, color: '#ef4444', opacity: 1 });
                                 }
                             }
                         } else {
@@ -1165,6 +1183,11 @@
                   ctx.strokeStyle = isActive ? '#ef4444' : '#991b1b'; 
                   ctx.shadowColor = '#ef4444';
                   ctx.shadowBlur = isActive ? 20 : 10;
+              } else if (w.isHealthWord) {
+                  ctx.fillStyle = isActive ? '#064e3b' : '#14532d';
+                  ctx.strokeStyle = isMaxEnergy ? '#ffffff' : '#10b981';
+                  ctx.shadowColor = isMaxEnergy ? '#10b981' : '#10b981';
+                  ctx.shadowBlur = isMaxEnergy ? 30 : (isActive ? 15 : 6);
               } else if (w.isStarPower) {
                   ctx.fillStyle = isActive ? '#4a044e' : '#831843';
                   ctx.strokeStyle = isMaxEnergy ? '#ffffff' : '#f472b6'; 
@@ -1189,6 +1212,11 @@
                   ctx.strokeStyle = isActive ? '#ef4444' : '#991b1b'; 
                   ctx.shadowColor = '#ef4444';
                   ctx.shadowBlur = isActive ? 20 : 10;
+              } else if (w.isHealthWord) {
+                  ctx.fillStyle = isActive ? '#064e3b' : '#14532d';
+                  ctx.strokeStyle = isMaxEnergy ? '#ffffff' : '#10b981';
+                  ctx.shadowColor = isMaxEnergy ? '#10b981' : '#10b981';
+                  ctx.shadowBlur = isMaxEnergy ? 30 : (isActive ? 15 : 6);
               } else if (w.isStarPower) {
                   ctx.fillStyle = isActive ? '#451a03' : '#78350f';
                   ctx.strokeStyle = isMaxEnergy ? '#ffffff' : '#fbbf24';
@@ -1238,6 +1266,9 @@
                 if (w.isBossWord) {
                     ctx.fillStyle = isTyped ? '#fca5a5' : isNext ? '#ffffff' : '#ef4444';
                     ctx.shadowColor = isTyped ? '#fca5a5' : isNext ? '#ffffff' : '#dc2626';
+                } else if (w.isHealthWord) {
+                    ctx.fillStyle = isTyped ? '#6ee7b7' : isNext ? '#ffffff' : '#34d399';
+                    ctx.shadowColor = isTyped ? '#10b981' : isNext ? '#ffffff' : '#059669';
                 } else if (w.isStarPower) {
                     ctx.fillStyle = isTyped ? '#f9a8d4' : isNext ? '#ffffff' : (isMaxEnergy ? '#ffffff' : '#fbcfe8');
                 } else if (w.isNarwhal) {
@@ -1245,11 +1276,14 @@
                 } else {
                     ctx.fillStyle = isTyped ? '#22d3ee' : isNext ? '#a5f3fc' : (isMaxEnergy ? '#ffffff' : '#94a3b8');
                 }
-                if (!w.isBossWord) ctx.shadowColor = isTyped ? '#06b6d4' : isNext ? '#ffffff' : (isMaxEnergy ? '#06b6d4' : 'transparent');
+                if (!w.isBossWord && !w.isHealthWord) ctx.shadowColor = isTyped ? '#06b6d4' : isNext ? '#ffffff' : (isMaxEnergy ? '#06b6d4' : 'transparent');
             } else {
                 if (w.isBossWord) {
                     ctx.fillStyle = isTyped ? '#fca5a5' : isNext ? '#ffffff' : '#ef4444';
                     ctx.shadowColor = isTyped ? '#fca5a5' : isNext ? '#ffffff' : '#dc2626';
+                } else if (w.isHealthWord) {
+                    ctx.fillStyle = isTyped ? '#6ee7b7' : isNext ? '#ffffff' : '#34d399';
+                    ctx.shadowColor = isTyped ? '#10b981' : isNext ? '#ffffff' : '#059669';
                 } else if (w.isStarPower) {
                     ctx.fillStyle = isTyped ? '#f59e0b' : isNext ? '#ffffff' : (isMaxEnergy ? '#ffffff' : '#fde68a');
                 } else if (w.isNarwhal) {
@@ -1257,7 +1291,7 @@
                 } else {
                     ctx.fillStyle = isTyped ? '#ec4899' : isNext ? '#a855f7' : (isMaxEnergy ? '#ffffff' : '#94a3b8');
                 }
-                if (!w.isBossWord) ctx.shadowColor = isTyped ? '#10b981' : isNext ? '#ec4899' : (isMaxEnergy ? '#fbbf24' : 'transparent');
+                if (!w.isBossWord && !w.isHealthWord) ctx.shadowColor = isTyped ? '#10b981' : isNext ? '#ec4899' : (isMaxEnergy ? '#fbbf24' : 'transparent');
             }
             
             ctx.font = isNext ? '900 36px monospace' : 'bold 24px monospace';
@@ -1432,7 +1466,9 @@
                   <label className="text-xs font-black text-slate-400 uppercase tracking-wider">{activeTheme === 'dj' ? 'Select Mixtape (Subject)' : 'Song List (Curriculum Subject)'}</label>
                   <select value={activeSubject} onChange={(e) => setActiveSubject(e.target.value)} className={`w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 focus:outline-none focus:ring-2 text-slate-100 font-semibold shadow-sm transition-all ${activeTheme === 'dj' ? 'focus:ring-cyan-500' : 'focus:ring-pink-500'}`}>
                     {Object.keys(CURRICULUM_WORDS).map(subject => (
-                      <option key={subject} value={subject}>{subject.toUpperCase()}</option>
+                      <option key={subject} value={subject} disabled={difficulty === 'narwhal' && subject === 'custom'}>
+                        {subject.toUpperCase()}{difficulty === 'narwhal' && subject === 'custom' ? ' (NOT ALLOWED IN NARWHAL)' : ''}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -1463,7 +1499,12 @@
                         key={diff.key} 
                         type="button" 
                         disabled={diff.disabled}
-                        onClick={() => setDifficulty(diff.key)} 
+                        onClick={() => {
+                            setDifficulty(diff.key);
+                            if (diff.key === 'narwhal' && activeSubject === 'custom') {
+                                setActiveSubject('math');
+                            }
+                        }} 
                         className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all relative 
                           ${diff.disabled ? 'opacity-40 cursor-not-allowed grayscale border-slate-700 bg-slate-900/50 text-slate-500' : 
                           difficulty === diff.key ? `${diff.color} ring-2 ring-offset-2 font-black scale-105 shadow-md ${activeTheme === 'dj' ? 'ring-cyan-500' : 'ring-pink-500'}` : 'border-slate-800 hover:bg-slate-800 font-semibold text-slate-400'}`}
@@ -1538,7 +1579,7 @@
                   You have 1 {activeTheme === 'dj' ? 'Rewind' : 'Encore'} continue left to keep your multiplier.
               </p>
               <div className="flex flex-col gap-2">
-                <button onClick={handleContinue} className={`w-full py-4 text-white font-extrabold text-lg rounded-xl transition-all shadow-lg active:scale-95 ${activeTheme === 'dj' ? 'bg-gradient-to-r from-cyan-600 to-blue-600' : 'bg-gradient-to-r from-purple-600 to-pink-500'}`}>
+                <button onClick={handleContinue} className={`w-full py-4 text-white font-extrabold text-lg rounded-xl transition-all shadow-lg active:scale-95 ${activeTheme === 'dj' ? 'bg-gradient-to-r from-cyan-600 to-blue-500' : 'bg-gradient-to-r from-purple-600 to-pink-500'}`}>
                   Trigger {activeTheme === 'dj' ? 'Rewind' : 'Encore'} (Continue)
                 </button>
                 <button onClick={handleResetToLobby} className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl">Back to Menu</button>
@@ -1558,7 +1599,7 @@
                   Looks like you're struggling to keep your Energy Meter up! Dropping down a difficulty level can help you master the home-row basics before you speed back up.
                 </p>
                 <div className="flex flex-col gap-2">
-                  <button onClick={handleDemoteDifficulty} className={`w-full py-4 text-white font-extrabold text-lg rounded-xl transition-all shadow-lg active:scale-95 ${activeTheme === 'dj' ? 'bg-gradient-to-r from-cyan-600 to-blue-600' : 'bg-gradient-to-r from-purple-600 to-pink-500'}`}>
+                  <button onClick={handleDemoteDifficulty} className={`w-full py-4 text-white font-extrabold text-lg rounded-xl transition-all shadow-lg active:scale-95 ${activeTheme === 'dj' ? 'bg-gradient-to-r from-cyan-600 to-blue-500' : 'bg-gradient-to-r from-purple-600 to-pink-500'}`}>
                     Lower Difficulty & Restart
                   </button>
                   <button onClick={handleResetToLobby} className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl">Quit to Main Menu</button>
